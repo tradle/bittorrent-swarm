@@ -9,14 +9,11 @@ var HANDSHAKE_TIMEOUT = 5000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
 var DEFAULT_SIZE = 100
 
-var toBuffer = function(str, encoding) {
-  return Buffer.isBuffer(str) ? str : new Buffer(str, encoding)
 }
 
 var toAddress = function(wire) {
   if (typeof wire === 'string') return wire;
   return wire.remoteAddress;
-};
 
 var onwire = function(connection, onhandshake) {
   var wire = peerWireProtocol();

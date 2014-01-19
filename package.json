@@ -1,0 +1,51 @@
+{
+  "name": "bittorrent-swarm",
+  "version": "0.0.1",
+  "description": "Simple, robust, BitTorrent swarm implementation",
+  "main": "index.js",
+  "dependencies": {
+    "bittorrent-protocol": "0.x",
+    "fifo": "~0.1.2",
+    "once": "~1.1.1",
+    "chrome-net": "1.x"
+  },
+  "devDependencies": {
+    "tape": "2.x"
+  },
+  "browser": {
+    "net": "./node_modules/chrome-net/index.js"
+  },
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "testling": {
+    "files": "test/*.js",
+    "browsers": [
+      "ie/9..latest",
+      "chrome/25..latest",
+      "firefox/20..latest",
+      "safari/6..latest",
+      "opera/15.0..latest"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/feross/bittorrent-swarm.git"
+  },
+  "keywords": [
+    "torrent",
+    "bittorrent",
+    "protocol",
+    "swarm",
+    "stream",
+    "peer",
+    "wire",
+    "p2p",
+    "peer-to-peer"
+  ],
+  "author": "Feross Aboukhadijeh <feross@feross.org> (http://feross.org/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/feross/bittorrent-swarm/issues"
+  }
+}

@@ -7,7 +7,8 @@
     "bittorrent-protocol": "0.x",
     "fifo": "~0.1.2",
     "once": "~1.1.1",
-    "chrome-net": "1.x"
+    "chrome-net": "1.x",
+    "inherits": "~2.0.1"
   },
   "devDependencies": {
     "tape": "2.x"
@@ -43,7 +44,11 @@
     "p2p",
     "peer-to-peer"
   ],
-  "author": "Feross Aboukhadijeh <feross@feross.org> (http://feross.org/)",
+  "author": {
+    "name": "Feross Aboukhadijeh",
+    "email": "feross@feross.org",
+    "url": "http://feross.org/"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/feross/bittorrent-swarm/issues"

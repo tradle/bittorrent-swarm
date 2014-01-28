@@ -1,9 +1,9 @@
 var EventEmitter = require('events').EventEmitter
 var fifo = require('fifo')
+var inherits = require('inherits')
 var net = require('net')
 var once = require('once')
 var peerWireProtocol = require('bittorrent-protocol')
-var util = require('util')
 
 var HANDSHAKE_TIMEOUT = 5000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
@@ -99,6 +99,8 @@ var join = function(port, swarm) {
   pool.swarms[infoHash] = swarm
 }
 
+inherits(Swarm, EventEmitter)
+
 function Swarm (infoHash, peerId, options) {
   var self = this
   if (!(self instanceof Swarm)) return new Swarm(infoHash, peerId, options)
@@ -123,7 +125,6 @@ function Swarm (infoHash, peerId, options) {
   self._peers = {}
 }
 
-util.inherits(Swarm, EventEmitter)
 
 Swarm.prototype.__defineGetter__('queued', function() {
   return this._queues.reduce(function(prev, queue) {

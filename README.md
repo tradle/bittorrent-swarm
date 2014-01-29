@@ -6,7 +6,9 @@
 
 ### Simple, robust, BitTorrent "swarm" implementation
 
-This is a node.js abstraction of a BitTorrent "swarm" and is used by [WebTorrent](https://github.com/feross/WebTorrent).
+This is a node.js abstraction of a BitTorrent "swarm", which is handy for managing all peer connections for a given torrent download. This handles TCP connect/listen to peers and the BitTorrent peer wire protocol handshake.
+
+This module is used by [WebTorrent](https://github.com/feross/WebTorrent).
 
 ## install
 

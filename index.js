@@ -1,49 +1,148 @@
+// TODO:
+// - Support magnet metadata protocol for trackerless torrents
+// - Support PORT message to add peer to DHT
+// - Need to call setKeepAlive(true) on all wires or else they'll disconnect us
+// - Should we call setTimeout() on the wires?
+// - What happens when a peer connects and handhsakes for an infoHash that we don't have?
+
+module.exports = Swarm
+// module.exports.Peer = Peer
+// module.exports.Pool = Pool
+
 var EventEmitter = require('events').EventEmitter
-var fifo = require('fifo')
 var inherits = require('inherits')
 var net = require('net')
 var once = require('once')
-var peerWireProtocol = require('bittorrent-protocol')
+var Wire = require('bittorrent-protocol')
 
+var MAX_SIZE = 100
 var HANDSHAKE_TIMEOUT = 5000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
-var DEFAULT_SIZE = 100
 
-var toAddress = function (wire) {
-  if (typeof wire === 'string') return wire
-  return wire.remoteAddress
+var pools = {} // open pools (port -> Pool)
+
+function Peer (addr, conn) {
+  this.addr = addr
+  this.conn = conn
+
+  this.wire = null
+
+  // TODO
+  // this.reconnect = false
+  // this.retries = 0
+  // this.timeout = null
 }
 
-var onwire = function(connection, onhandshake) {
-  var wire = peerWireProtocol()
+Peer.prototype.onconnect = function () {
+  console.log('onconnect')
+  var conn = this.conn
+  var wire = this.wire = new Wire()
 
-  connection.on('end', function() {
-    connection.destroy()
-  })
-  connection.on('error', function() {
-    connection.destroy()
-  })
-  connection.on('close', function() {
-    wire.end()
-  })
+  conn.once('end', function () { conn.destroy() })
+  conn.once('error', function () { conn.destroy() })
+  conn.once('close', function () { wire.end() })
 
-  var destroy = function() {
-    connection.destroy()
+  conn.pipe(wire).pipe(conn)
+  wire.remoteAddress = this.addr
+}
+
+function Pool (port) {
+  this.port = port
+  this.swarms = {} // infoHash -> Swarm
+  this.listening = false
+
+  // Keep track of incoming connections so we can destroy them if we need to
+  // close the server later.
+  this.conns = []
+
+  this.server = net.createServer(this._onconn.bind(this))
+  this.server.listen(this.port, this._onlistening.bind(this))
+  this.server.on('error', this._onerror.bind(this))
+
+  this._retries = 0
+}
+
+Pool.prototype._onlistening = function () {
+  this.listening = true
+  this.swarms.forEach(function (swarm) {
+    swarm.emit('listening')
+  })
+}
+
+Pool.prototype._onconn = function (conn) {
+  // Track all conns in this pool
+  this.conns.push(conn)
+  conn.on('close', function () {
+    this.conns.splice(this.conns.indexOf(conn))
+  }.bind(this))
+
+  // On incoming connections, we expect the remote peer to send a handshake
+  // first. Based on the infoHash in that handshake, route the peer to the
+  // right swarm.
+  var peer = new Peer(addr, conn)
+  peer.onconnect()
+
+  // TODO: add timeout to wait for handshake for
+
+  peer.wire.on('handshake', function (infoHash, peerId, extensions) {
+    var swarm = this.swarms[infoHash.toString('hex')]
+    if (!swarm)
+      return conn.destroy()
+
+    swarm._onincoming(peer)
+  }.bind(this))
+}
+
+Pool.prototype._onerror = function (err) {
+  if (err.code == 'EADDRINUSE' && this._retries < 5) {
+    console.log('Address in use, retrying...')
+    setTimeout(function () {
+      this._retries += 1
+      this.server.close()
+      this.server.listen(this.port)
+    }.bind(this), 1000)
+  } else {
+    this.swarms.forEach(function (swarm) {
+      swarm.emit('error', 'Swarm listen error: ' + err.message)
+    })
   }
-  var timeout = setTimeout(destroy, HANDSHAKE_TIMEOUT)
-
-  wire.once('handshake', function(infoHash, peerId, extensions) {
-    console.log('HANDSHAKE SUCCESS, extensions:')
-    console.log(extensions)
-    clearTimeout(timeout)
-    onhandshake(infoHash, peerId, extensions)
-  })
-
-  connection.pipe(wire).pipe(connection)
-  return wire
 }
 
-var pools = {}
+Pool.prototype.close = function (cb) {
+  this.conns.forEach(function (conn) {
+    conn.destroy()
+  })
+  this.server.close(cb)
+}
+
+Pool.prototype.add = function (swarm) {
+  var infoHash = swarm.infoHash.toString('hex')
+
+  if (pool.listening) {
+    process.nextTick(function () {
+      swarm.emit('listening')
+    })
+  }
+
+  if (pool.swarms[infoHash]) {
+    process.nextTick(function() {
+      swarm.emit('error', new Error('Swarm listen error: There is already a ' +
+        'swarm with infoHash ' + swarm.infoHash + ' listening on port ' +
+        swarm.port))
+    })
+    return
+  }
+
+  pool.swarms[infoHash] = swarm
+}
+
+Pool.prototype.remove = function (swarm) {
+  var infoHash = swarm.infoHash.toString('hex')
+  delete this.swarms[infoHash]
+
+  if (this.swarms.length === 0)
+    this.close()
+}
 
 var leave = function(port, swarm) {
   if (!pools[port]) return
@@ -54,268 +153,281 @@ var leave = function(port, swarm) {
   delete pools[port]
 }
 
-var join = function(port, swarm) {
-  var pool = pools[port]
-
-  if (!pool) {
-    var swarms = {}
-    var server = net.createServer(function(connection) {
-      var wire = onwire(connection, function(infoHash, peerId, extensions) {
-        console.log(extensions)
-        var swarm = swarms[infoHash.toString('hex')]
-        if (!swarm) return connection.destroy()
-        swarm._onincoming(connection, wire)
-      })
-    })
-
-    server.listen(port, function() {
-      pool.listening = true
-      Object.keys(swarms).forEach(function(infoHash) {
-        swarms[infoHash].emit('listening')
-      })
-    })
-
-    pool = pools[port] = {
-      server: server,
-      swarms: swarms,
-      listening: false
-    }
-  }
-
-  var infoHash = swarm.infoHash.toString('hex')
-
-  if (pool.listening) {
-    process.nextTick(function() {
-      swarm.emit('listening')
-    })
-  }
-  if (pool.swarms[infoHash]) {
-    process.nextTick(function() {
-      swarm.emit('error', new Error('port and info hash already in use'))
-    })
-    return
-  }
-
-  pool.swarms[infoHash] = swarm
-}
 
 inherits(Swarm, EventEmitter)
 
-function Swarm (infoHash, peerId, options) {
-  var self = this
-  if (!(self instanceof Swarm)) return new Swarm(infoHash, peerId, options)
-  EventEmitter.call(self)
+function Swarm (infoHash, peerId) {
+  if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId)
 
-  if (!options) options = {}
+  EventEmitter.call(this)
 
-  self.port = 0
-  self.size = options.size || DEFAULT_SIZE
+  this.infoHash = typeof infoHash === 'string'
+    ? new Buffer(infoHash, 'hex')
+    : infoHash
 
-  self.infoHash = new Buffer(infoHash, 'hex')
-  self.peerId = new Buffer(peerId, 'utf8')
+  this.peerId = typeof peerId === 'string'
+    ? new Buffer(peerId, 'utf8')
+    : peerId
 
-  self.downloaded = 0
-  self.uploaded = 0
-  self.connections = []
-  self.wires = []
-  self.paused = false
+  this.port = 0
+  this.downloaded = 0
+  this.uploaded = 0
 
-  self._destroyed = false
-  self._queues = [fifo()]
-  self._peers = {}
+  this.wires = [] // open wires (added *after* handshake)
+
+  this._queue = [] // queue of peers to connect to
+  this._peers = {} // connected peers (addr -> Peer)
+
+  this._paused = false
+  this._destroyed = false
 }
 
-
-Swarm.prototype.__defineGetter__('queued', function() {
-  return this._queues.reduce(function(prev, queue) {
-    return prev + queue.length
-  }, 0)
+Object.defineProperty(Swarm.prototype, 'numQueued', {
+  get: function () {
+    return this._queue.length
+  }
 })
 
-Swarm.prototype.pause = function () {
-  this.paused = true
-}
-
-Swarm.prototype.resume = function () {
-  this.paused = false
-  this._drain()
-}
-
-Swarm.prototype.priority = function(addr, level) {
-  addr = toAddress(addr)
-  var peer = this._peers[addr]
-
-  if (!peer) return 0
-  if (typeof level !== 'number' || peer.priority === level) return level
-
-  if (!this._queues[level]) this._queues[level] = fifo()
-
-  if (peer.node) {
-    this._queues[peer.priority].remove(peer.node)
-    peer.node = this._queues[level].push(addr)
+Object.defineProperty(Swarm.prototype, 'numConns', {
+  get: function () {
+    return Object.keys(this._peers)
+      .map(function (addr) {
+        return this._peers[addr].conn ? 1 : 0
+      }.bind(this))
+      .reduce(function (prev, current) {
+        return prev + current
+      }, 0)
   }
-
-  peer.priority = level
-  return level
-}
+})
 
 /**
  * Add a peer to the swarm.
  * @param {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
 Swarm.prototype.add = function (addr) {
-  var self = this
-  if (self._destroyed || self._peers[addr]) return
+  if (this._destroyed || this._peers[addr]) return
 
-  self._peers[addr] = {
-    node: self._queues[0].push(addr),
-    priority: 0,
-    reconnect: false,
-    retries: 0,
-    timeout: null,
-    wire: null
-  }
+console.log('pre peer')
+  var peer = new Peer(addr)
+console.log('post peer')
+  this._peers[addr] = peer
+  this._queue.push(peer)
 
-  self._drain()
-}
-
-Swarm.prototype.remove = function(addr) {
-  this._remove(toAddress(addr))
   this._drain()
 }
 
-Swarm.prototype.listen = function(port, onlistening) {
-  if (onlistening) this.once('listening', onlistening)
-  this.port = port
-  join(this.port, this)
+Swarm.prototype.pause = function () {
+  this._paused = true
 }
 
-Swarm.prototype.destroy = function() {
-  this._destroyed = true
-
-  var self = this
-  Object.keys(this._peers).forEach(function(addr) {
-    self._remove(addr)
-  })
-
-  leave(this.port, this)
-  process.nextTick(function() {
-    self.emit('close')
-  })
-}
-
-Swarm.prototype._remove = function(addr) {
-  var peer = this._peers[addr]
-  if (!peer) return
-  delete this._peers[addr]
-  if (peer.node) this._queues[peer.priority].remove(peer.node)
-  if (peer.timeout) clearTimeout(peer.timeout)
-  if (peer.wire) peer.wire.destroy()
-}
-
-Swarm.prototype._drain = function () {
-  var self = this
-  if (self.connections.length >= self.size || self.paused) return
-
-  var addr = self._shift()
-  if (!addr) return
-
-  var peer = self._peers[addr]
-  if (!peer) return
-
-  var parts = addr.split(':')
-  var connection = net.connect(parts[1], parts[0])
-  if (peer.timeout) clearTimeout(peer.timeout)
-
-  peer.node = null
-  peer.timeout = null
-
-  var wire = onwire(connection, function(infoHash) {
-    if (infoHash.toString('hex') !== self.infoHash.toString('hex')) return connection.destroy()
-    peer.reconnect = true
-    peer.retries = 0
-    self._onwire(connection, wire)
-  })
-
-  var repush = function() {
-    peer.node = self._queues[peer.priority].push(addr)
-    self._drain()
-  }
-
-  wire.on('end', function() {
-    peer.wire = null
-    if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr)
-    peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++])
-  })
-
-  peer.wire = wire
-  self._onconnection(connection)
-
-  wire.remoteAddress = addr
-  wire.handshake(self.infoHash, self.peerId)
+Swarm.prototype.resume = function () {
+  this._paused = false
+  this._drain()
 }
 
 /**
- * Return a peer from the queues. Prefer higher priority peers, followed by
- * older peers.
- * @return {Object} peer
+ * Remove a peer from the swarm.
+ * @param  {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
-Swarm.prototype._shift = function() {
-  var self = this
-  for (var i = self._queues.length - 1; i >= 0; i--) {
-    var queue = self._queues[i]
-    if (queue && queue.length) return queue.shift()
-  }
-  return null
+Swarm.prototype.remove = function (addr) {
+  this._remove(addr)
+  this._drain()
 }
 
-Swarm.prototype._onincoming = function(connection, wire) {
-  wire.remoteAddress = connection.address().address + ':' + connection.address().port
+/**
+ * Private method to remove a peer from the swarm without calling _drain().
+ * @param  {string} addr  ip address and port (ex: 12.34.56.78:12345)
+ */
+Swarm.prototype._remove = function (addr) {
+  var peer = this._peers[addr]
+  if (!peer) return
+  delete this._peers[addr]
+  if (peer.node)
+    this._queue.splice(this._queue.indexOf(peer), 1)
+  if (peer.timeout)
+    clearTimeout(peer.timeout)
+  if (peer.wire)
+    peer.wire.destroy()
+}
+
+/**
+ * Listen on the given port for peer connections.
+ * @param  {number} port
+ * @param  {function} onlistening
+ */
+Swarm.prototype.listen = function (port, onlistening) {
+  this.port = port
+  if (onlistening)
+    this.once('listening', onlistening)
+
+  var pool = pools[port]
+  if (!pool)
+    pool = pools[port] = new Pool(port)
+
+  pool.add(this)
+}
+
+/**
+ * Destroy the swarm, close all open peer connections, and cleanup.
+ */
+Swarm.prototype.destroy = function() {
+  this._destroyed = true
+
+  Object.keys(this._peers).forEach(function(addr) {
+    this._remove(addr)
+  }.bind(this))
+
+  // TODO
+  leave(this.port, this)
+
+  process.nextTick(function() {
+    this.emit('close')
+  }.bind(this))
+}
+
+
+
+/**
+ * Pop a peer off the FIFO queue and connect to it. When _drain() gets called,
+ * the queue will usually have only one peer in it, except when there are too
+ * many peers (over `this.maxSize`) in which case they will just sit in the queue
+ * until another connection closes.
+ */
+Swarm.prototype._drain = function () {
+  console.log('_drain')
+  if (this.numConns >= MAX_SIZE || this._paused) return
+
+  var peer = this._queue.shift()
+  if (!peer) return
+
+  // if (peer.timeout) {
+  //   clearTimeout(peer.timeout)
+  //   peer.timeout = null
+  // }
+
+  var parts = peer.addr.split(':')
+  console.log(parts)
+  var conn = peer.conn = net.connect(parts[1], parts[0])
+  var wire = peer.wire
+
+  console.log(conn)
+
+  conn.on('connect', function () {
+    console.log('connect! ' + addr)
+    conn.onconnect()
+
+    this._onconn(peer)
+    wire.handshake(this.infoHash, this.peerId)
+  }.bind(this))
+
+  wire.on('handshake', function (infoHash) {
+    if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
+      return peer.conn.destroy()
+
+    this._onwire(peer)
+  }.bind(this))
+
+  // TODO
+  // wire.on('handshake', function (infoHash) {
+  //   this.reconnect = true
+  //   this.retries = 0
+  // }.bind(this))
+
+  // Handshake
+  // var timeout = setTimeout(function () {
+  //   conn.destroy()
+  // }, HANDSHAKE_TIMEOUT)
+
+  // wire.once('handshake', function (infoHash, peerId, extensions) {
+  //   console.log('HANDSHAKE SUCCESS, extensions:')
+  //   console.log(extensions)
+  //   clearTimeout(timeout)
+
+  //   if (extensions.extended) {
+  //     wire.extended(0, {
+  //       m: {
+  //         ut_metadata: 1
+  //       }
+  //       // TODO - this should be set once we have metadata
+  //       // metadata_size: xx
+  //     })
+  //   }
+
+  // var repush = function () {
+  //   peer.node = this._queue.push(peer)
+  //   this._drain()
+  // }.bind(this)
+
+  // wire.on('end', function () {
+  //   peer.wire = null
+  //   if (!peer.reconnect || this._destroyed || peer.retries >= RECONNECT_WAIT.length) return this._remove(peer.addr)
+  //   peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++])
+  // }.bind(this))
+
+}
+
+/**
+ * Called whenever a new peer wants to connects to this swarm. Called with a
+ * peer that has already sent us a handshake.
+ * @param  {Peer} peer
+ */
+Swarm.prototype._onincoming = function (peer) {
+  var conn = peer.conn
+  var addr = conn.address().address + ':' + conn.address().port
+
+  this._peers[addr] = peer
   wire.handshake(this.infoHash, this.peerId)
 
-  this._onconnection(connection)
-  this._onwire(connection, wire)
+  this._onconn(peer)
+  this._onwire(peer)
 }
 
-Swarm.prototype._onconnection = function(connection) {
-  var self = this
+//
+// HELPER METHODS
+//
 
-  connection.once('close', function() {
-    self.connections.splice(self.connections.indexOf(connection), 1)
-    self._drain()
-  })
-
-  this.connections.push(connection)
+/**
+ * Called whenever a new connection is connected.
+ * @param  {Socket} conn
+ */
+Swarm.prototype._onconn = function (peer) {
+  conn.once('close', function () {
+    this._drain() // allow another connection to be opened
+  }.bind(this))
 }
 
-Swarm.prototype._onwire = function(connection, wire) {
-  var self = this
+/**
+ * Called whenever we've handshaken with a new wire.
+ * @param  {Peer} peer
+ */
+Swarm.prototype._onwire = function (peer) {
+  var conn = peer.conn
+  var wire = peer.wire
 
   wire.on('download', function (downloaded) {
-    self.downloaded += downloaded
-    self.emit('download', downloaded)
-  })
+    this.downloaded += downloaded
+    this.emit('download', downloaded)
+  }.bind(this))
 
-  wire.on('upload', function(uploaded) {
-    self.uploaded += uploaded
-    self.emit('upload', uploaded)
-  })
+  wire.on('upload', function (uploaded) {
+    this.uploaded += uploaded
+    this.emit('upload', uploaded)
+  }.bind(this))
 
-  var cleanup = once(function() {
-    self.wires.splice(self.wires.indexOf(wire), 1)
-    connection.destroy()
-  })
+  var cleanup = once(function () {
+    this.wires.splice(this.wires.indexOf(wire), 1)
+    conn.destroy()
+  }.bind(this))
 
-  connection.on('close', cleanup)
-  connection.on('error', cleanup)
-  connection.on('end', cleanup)
   wire.on('end', cleanup)
   wire.on('close', cleanup)
   wire.on('error', cleanup)
   wire.on('finish', cleanup)
 
   this.wires.push(wire)
-  this.emit('wire', wire, connection)
+  this.emit('wire', wire)
 }
 
-module.exports = Swarm;
+// require('call-log')(Swarm)
+// require('call-log')(Peer)
+// require('call-log')(Pool)

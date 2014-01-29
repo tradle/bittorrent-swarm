@@ -6,8 +6,6 @@
 
 ### Simple, robust, BitTorrent "swarm" implementation
 
-[![NPM](https://nodei.co/npm/bittorrent-swarm.png?downloads=true)](https://npmjs.org/package/bittorrent-swarm)
-
 This is a node.js abstraction of a BitTorrent "swarm" and is used by [WebTorrent](https://github.com/feross/WebTorrent).
 
 ## install

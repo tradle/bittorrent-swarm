@@ -35,3 +35,42 @@ test('swarm listen', function (t) {
   })
 })
 
+test('swarm join', function (t) {
+  t.plan(10)
+
+  var swarm1 = new Swarm(infoHash, peerId1)
+  portfinder.getPort(function (err, port) {
+    if (err) throw err
+    swarm1.listen(port)
+
+    swarm1.on('listening', function () {
+      var swarm2 = new Swarm(infoHash, peerId2)
+
+      t.equal(swarm1.wires.length, 0)
+      t.equal(swarm2.wires.length, 0)
+
+      swarm1.on('wire', function (wire) {
+        t.ok('Peer join our swarm via listening port')
+
+        t.equal(swarm1.wires.length, 1)
+        t.ok(wire.remoteAddress.indexOf('127.0.0.1:') === 0)
+        t.equal(wire.peerId.toString('utf8'), peerId2)
+
+        swarm1.destroy()
+      })
+
+      swarm2.on('wire', function (wire) {
+        t.ok(wire, 'Joined swarm, got wire')
+
+        t.equal(swarm2.wires.length, 1)
+        t.equal(wire.remoteAddress, '127.0.0.1:8000')
+        t.equal(wire.peerId.toString('utf8'), peerId1)
+
+        swarm2.destroy()
+      })
+
+      swarm2.add('127.0.0.1:' + swarm1.port)
+    })
+  })
+})
+

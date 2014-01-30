@@ -16,6 +16,14 @@ var MAX_SIZE = 100
 var HANDSHAKE_TIMEOUT = 5000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
 
+/**
+ * Peer
+ * ====
+ * A peer in the swarm. Comprised of a `net.Socket` and a `Wire`.
+ *
+ * @param {string} addr
+ * @param {Socket} conn
+ */
 function Peer (addr, conn) {
   this.addr = addr
   this.conn = conn
@@ -28,18 +36,35 @@ function Peer (addr, conn) {
   // this.timeout = null
 }
 
+/**
+ * Called once the peer's `conn` has connected (i.e. fired 'connect')
+ */
 Peer.prototype.onconnect = function () {
   var conn = this.conn
   var wire = this.wire = new Wire()
+  wire.remoteAddress = this.addr
 
+  // Close the wire when the connection is destroyed
   conn.once('end', function () { conn.destroy() })
   conn.once('error', function () { conn.destroy() })
   conn.once('close', function () { wire.end() })
 
+  // Duplex streaming magic!
   conn.pipe(wire).pipe(conn)
-  wire.remoteAddress = this.addr
 }
 
+/**
+ * Pool
+ * ====
+ * A "pool" is a bunch of swarms all listening on the same TCP port for
+ * incoming connections from peers who are interested in one of our swarms.
+ * There is one Pool for every port that a swarm is listening on, and they are
+ * all stored in the `Pool.pools` object. When a connection comes in, the pool
+ * does the wire protocol handshake with the peer to determine which swarm they
+ * are interested in, and routes the connection to the right swarm.
+ *
+ * @param {number} port
+ */
 function Pool (port) {
   this.port = port
   this.swarms = {} // infoHash -> Swarm
@@ -56,8 +81,15 @@ function Pool (port) {
   this._retries = 0
 }
 
-Pool.pools = {} // open pools (port -> Pool)
+/**
+ * In-use Pools (port -> Pool)
+ */
+Pool.pools = {}
 
+/**
+ * STATIC METHOD: Add a swarm to a pool, creating a new pool if necessary.
+ * @param {Swarm} swarm
+ */
 Pool.add = function (swarm) {
   var port = swarm.port
   var pool = Pool.pools[port]
@@ -68,6 +100,10 @@ Pool.add = function (swarm) {
   pool.addSwarm(swarm)
 }
 
+/**
+ * STATIC METHOD: Remove a swarm from its pool.
+ * @param  {Swarm} swarm
+ */
 Pool.remove = function (swarm) {
   var port = swarm.port
   var pool = Pool.pools[port]
@@ -128,13 +164,23 @@ Pool.prototype._onerror = function (err) {
   }
 }
 
-Pool.prototype.close = function (cb) {
+/**
+ * Destroy this pool.
+ * @param  {function} cb
+ */
+Pool.prototype.destroy = function (cb) {
+  // Destroy all open connections & wire objects so the server can gracefully
+  // close without waiting for timeout or the remote peer to disconnect.
   this.conns.forEach(function (conn) {
     conn.destroy()
   })
   this.server.close(cb)
 }
 
+/**
+ * Add a swarm to this pool.
+ * @param {Swarm} swarm
+ */
 Pool.prototype.addSwarm = function (swarm) {
   var infoHash = swarm.infoHash.toString('hex')
 
@@ -156,17 +202,36 @@ Pool.prototype.addSwarm = function (swarm) {
   this.swarms[infoHash] = swarm
 }
 
+/**
+ * Remove a swarm from this pool.
+ * @param  {Swarm} swarm
+ */
 Pool.prototype.removeSwarm = function (swarm) {
   var infoHash = swarm.infoHash.toString('hex')
   delete this.swarms[infoHash]
 
   if (Object.keys(this.swarms).length === 0)
-    this.close()
+    this.destroy()
 }
 
 
 inherits(Swarm, EventEmitter)
 
+/**
+ * Swarm
+ * =====
+ * Abstraction of a BitTorrent "swarm", which is handy for managing all peer
+ * connections for a given torrent download. This handles connecting to peers,
+ * listening for incoming connections, and doing the initial peer wire protocol
+ * handshake with peers. It also tracks total data uploaded/downloaded to/from
+ * the swarm.
+ *
+ * Events: wire, download, upload, error, close
+ *
+ * @param {Buffer|string} infoHash
+ * @param {Buffer|string} peerId
+ * @param {Object} extensions
+ */
 function Swarm (infoHash, peerId, extensions) {
   if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId)
 
@@ -227,10 +292,18 @@ Swarm.prototype.add = function (addr) {
   this._drain()
 }
 
+/**
+ * Temporarily stop connecting to new peers. Note that this does not pause new
+ * incoming connections, nor does it pause the streams of existing connections
+ * or their wires.
+ */
 Swarm.prototype.pause = function () {
   this._paused = true
 }
 
+/**
+ * Resume connecting to new peers.
+ */
 Swarm.prototype.resume = function () {
   this._paused = false
   this._drain()
@@ -275,7 +348,7 @@ Swarm.prototype.listen = function (port, onlistening) {
 }
 
 /**
- * Destroy the swarm, close all open peer connections, and cleanup.
+ * Destroy the swarm, close all open peer connections, and do cleanup.
  */
 Swarm.prototype.destroy = function() {
   this._destroyed = true

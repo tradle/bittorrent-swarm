@@ -1,8 +1,5 @@
 // TODO:
 // - Support magnet metadata protocol for trackerless torrents
-// - Support PORT message to add peer to DHT
-// - Need to call setKeepAlive(true) on all wires or else they'll disconnect us
-// - Should we call setTimeout() on the wires?
 // - What happens when a peer connects and handhsakes for an infoHash that we don't have?
 
 module.exports = Swarm
@@ -170,7 +167,7 @@ Pool.prototype.removeSwarm = function (swarm) {
 
 inherits(Swarm, EventEmitter)
 
-function Swarm (infoHash, peerId) {
+function Swarm (infoHash, peerId, extensions) {
   if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId)
 
   EventEmitter.call(this)
@@ -182,6 +179,8 @@ function Swarm (infoHash, peerId) {
   this.peerId = typeof peerId === 'string'
     ? new Buffer(peerId, 'utf8')
     : peerId
+
+  this.extensions = extensions
 
   this.port = 0
   this.downloaded = 0
@@ -318,7 +317,7 @@ Swarm.prototype._drain = function () {
     peer.onconnect()
     this._onconn(peer)
 
-    peer.wire.handshake(this.infoHash, this.peerId)
+    peer.wire.handshake(this.infoHash, this.peerId, this.extensions)
 
     peer.wire.on('handshake', function (infoHash) {
       if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
@@ -374,7 +373,7 @@ Swarm.prototype._drain = function () {
  */
 Swarm.prototype._onincoming = function (peer) {
   this._peers[peer.wire.remoteAddress] = peer
-  peer.wire.handshake(this.infoHash, this.peerId)
+  peer.wire.handshake(this.infoHash, this.peerId, this.extensions)
 
   this._onconn(peer)
   this._onwire(peer)

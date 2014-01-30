@@ -19,8 +19,6 @@ var MAX_SIZE = 100
 var HANDSHAKE_TIMEOUT = 5000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
 
-var pools = {} // open pools (port -> Pool)
-
 function Peer (addr, conn) {
   this.addr = addr
   this.conn = conn
@@ -34,7 +32,6 @@ function Peer (addr, conn) {
 }
 
 Peer.prototype.onconnect = function () {
-  console.log('onconnect')
   var conn = this.conn
   var wire = this.wire = new Wire()
 
@@ -62,11 +59,35 @@ function Pool (port) {
   this._retries = 0
 }
 
+Pool.pools = {} // open pools (port -> Pool)
+
+Pool.add = function (swarm) {
+  var port = swarm.port
+  var pool = Pool.pools[port]
+
+  if (!pool)
+    pool = Pool.pools[port] = new Pool(port)
+
+  pool.addSwarm(swarm)
+}
+
+Pool.remove = function (swarm) {
+  var port = swarm.port
+  var pool = Pool.pools[port]
+  if (!pool) return
+
+  pool.removeSwarm(swarm)
+
+  if (Object.keys(pool.swarms).length === 0)
+    delete Pool.pools[port]
+}
+
 Pool.prototype._onlistening = function () {
   this.listening = true
-  this.swarms.forEach(function (swarm) {
+  for (var infoHash in this.swarms) {
+    var swarm = this.swarms[infoHash]
     swarm.emit('listening')
-  })
+  }
 }
 
 Pool.prototype._onconn = function (conn) {
@@ -75,6 +96,8 @@ Pool.prototype._onconn = function (conn) {
   conn.on('close', function () {
     this.conns.splice(this.conns.indexOf(conn))
   }.bind(this))
+
+  var addr = conn.remoteAddress + ':' + conn.remotePort
 
   // On incoming connections, we expect the remote peer to send a handshake
   // first. Based on the infoHash in that handshake, route the peer to the
@@ -115,16 +138,16 @@ Pool.prototype.close = function (cb) {
   this.server.close(cb)
 }
 
-Pool.prototype.add = function (swarm) {
+Pool.prototype.addSwarm = function (swarm) {
   var infoHash = swarm.infoHash.toString('hex')
 
-  if (pool.listening) {
+  if (this.listening) {
     process.nextTick(function () {
       swarm.emit('listening')
     })
   }
 
-  if (pool.swarms[infoHash]) {
+  if (this.swarms[infoHash]) {
     process.nextTick(function() {
       swarm.emit('error', new Error('Swarm listen error: There is already a ' +
         'swarm with infoHash ' + swarm.infoHash + ' listening on port ' +
@@ -133,24 +156,15 @@ Pool.prototype.add = function (swarm) {
     return
   }
 
-  pool.swarms[infoHash] = swarm
+  this.swarms[infoHash] = swarm
 }
 
-Pool.prototype.remove = function (swarm) {
+Pool.prototype.removeSwarm = function (swarm) {
   var infoHash = swarm.infoHash.toString('hex')
   delete this.swarms[infoHash]
 
-  if (this.swarms.length === 0)
+  if (Object.keys(this.swarms).length === 0)
     this.close()
-}
-
-var leave = function(port, swarm) {
-  if (!pools[port]) return
-  delete pools[port].swarms[swarm.infoHash.toString('hex')]
-
-  if (Object.keys(pools[port].swarms).length) return
-  pools[port].server.close()
-  delete pools[port]
 }
 
 
@@ -207,9 +221,7 @@ Object.defineProperty(Swarm.prototype, 'numConns', {
 Swarm.prototype.add = function (addr) {
   if (this._destroyed || this._peers[addr]) return
 
-console.log('pre peer')
   var peer = new Peer(addr)
-console.log('post peer')
   this._peers[addr] = peer
   this._queue.push(peer)
 
@@ -260,11 +272,7 @@ Swarm.prototype.listen = function (port, onlistening) {
   if (onlistening)
     this.once('listening', onlistening)
 
-  var pool = pools[port]
-  if (!pool)
-    pool = pools[port] = new Pool(port)
-
-  pool.add(this)
+  Pool.add(this)
 }
 
 /**
@@ -273,12 +281,11 @@ Swarm.prototype.listen = function (port, onlistening) {
 Swarm.prototype.destroy = function() {
   this._destroyed = true
 
-  Object.keys(this._peers).forEach(function(addr) {
+  for (var addr in this._peers) {
     this._remove(addr)
-  }.bind(this))
+  }
 
-  // TODO
-  leave(this.port, this)
+  Pool.remove(this)
 
   process.nextTick(function() {
     this.emit('close')
@@ -294,7 +301,6 @@ Swarm.prototype.destroy = function() {
  * until another connection closes.
  */
 Swarm.prototype._drain = function () {
-  console.log('_drain')
   if (this.numConns >= MAX_SIZE || this._paused) return
 
   var peer = this._queue.shift()
@@ -306,25 +312,20 @@ Swarm.prototype._drain = function () {
   // }
 
   var parts = peer.addr.split(':')
-  console.log(parts)
   var conn = peer.conn = net.connect(parts[1], parts[0])
-  var wire = peer.wire
-
-  console.log(conn)
 
   conn.on('connect', function () {
-    console.log('connect! ' + addr)
-    conn.onconnect()
-
+    peer.onconnect()
     this._onconn(peer)
-    wire.handshake(this.infoHash, this.peerId)
-  }.bind(this))
 
-  wire.on('handshake', function (infoHash) {
-    if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
-      return peer.conn.destroy()
+    peer.wire.handshake(this.infoHash, this.peerId)
 
-    this._onwire(peer)
+    peer.wire.on('handshake', function (infoHash) {
+      if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
+        return peer.conn.destroy()
+      this._onwire(peer)
+    }.bind(this))
+
   }.bind(this))
 
   // TODO
@@ -372,11 +373,8 @@ Swarm.prototype._drain = function () {
  * @param  {Peer} peer
  */
 Swarm.prototype._onincoming = function (peer) {
-  var conn = peer.conn
-  var addr = conn.address().address + ':' + conn.address().port
-
-  this._peers[addr] = peer
-  wire.handshake(this.infoHash, this.peerId)
+  this._peers[peer.wire.remoteAddress] = peer
+  peer.wire.handshake(this.infoHash, this.peerId)
 
   this._onconn(peer)
   this._onwire(peer)
@@ -391,7 +389,7 @@ Swarm.prototype._onincoming = function (peer) {
  * @param  {Socket} conn
  */
 Swarm.prototype._onconn = function (peer) {
-  conn.once('close', function () {
+  peer.conn.once('close', function () {
     this._drain() // allow another connection to be opened
   }.bind(this))
 }

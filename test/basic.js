@@ -19,3 +19,19 @@ test('create swarm, check invariants', function (t) {
   t.end()
 })
 
+test('swarm listen', function (t) {
+  t.plan(2)
+
+  var swarm = new Swarm(infoHash, peerId1)
+  t.equal(swarm.port, 0, 'port param initialized to 0')
+  portfinder.getPort(function (err, port) {
+    if (err) throw err
+    swarm.listen(port)
+
+    swarm.on('listening', function () {
+      t.equal(swarm.port, port, 'listened on requested port ' + port)
+      swarm.destroy()
+    })
+  })
+})
+

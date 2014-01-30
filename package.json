@@ -10,7 +10,9 @@
     "inherits": "~2.0.1"
   },
   "devDependencies": {
-    "tape": "2.x"
+    "tape": "2.x",
+    "hat": "0.0.3",
+    "portfinder": "~0.2.1"
   },
   "browser": {
     "net": "./node_modules/chrome-net/index.js"

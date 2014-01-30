@@ -8,6 +8,8 @@
 
 This is a node.js abstraction of a BitTorrent "swarm", which is handy for managing all peer connections for a given torrent download. This handles TCP connect/listen to peers and the BitTorrent peer wire protocol handshake.
 
+Works in the browser with [browserify](http://browserify.org/) and [chrome-net](https://github.com/feross/chrome-net)!
+
 This module is used by [WebTorrent](https://github.com/feross/WebTorrent).
 
 ## install

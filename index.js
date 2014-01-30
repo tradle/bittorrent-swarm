@@ -425,7 +425,3 @@ Swarm.prototype._onwire = function (peer) {
   this.wires.push(wire)
   this.emit('wire', wire)
 }
-
-// require('call-log')(Swarm)
-// require('call-log')(Peer)
-// require('call-log')(Pool)

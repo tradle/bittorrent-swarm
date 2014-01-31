@@ -1,6 +1,6 @@
 {
   "name": "bittorrent-swarm",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Simple, robust, BitTorrent swarm implementation",
   "main": "index.js",
   "dependencies": {

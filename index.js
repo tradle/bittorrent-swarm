@@ -202,7 +202,7 @@ Pool.prototype.addSwarm = function (swarm) {
   }
 
   if (this.swarms[infoHash]) {
-    process.nextTick(function() {
+    process.nextTick(function () {
       swarm.emit('error', new Error('Swarm listen error: There is already a ' +
         'swarm with infoHash ' + swarm.infoHash + ' listening on port ' +
         swarm.port))
@@ -361,7 +361,7 @@ Swarm.prototype.listen = function (port, onlistening) {
 /**
  * Destroy the swarm, close all open peer connections, and do cleanup.
  */
-Swarm.prototype.destroy = function() {
+Swarm.prototype.destroy = function () {
   this._destroyed = true
 
   for (var addr in this._peers) {
@@ -370,7 +370,7 @@ Swarm.prototype.destroy = function() {
 
   Pool.remove(this)
 
-  process.nextTick(function() {
+  process.nextTick(function () {
     this.emit('close')
   }.bind(this))
 }

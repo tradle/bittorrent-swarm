@@ -50,7 +50,7 @@ test('swarm join', function (t) {
       t.equal(swarm2.wires.length, 0)
 
       swarm1.on('wire', function (wire) {
-        t.ok('Peer join our swarm via listening port')
+        t.ok(wire, 'Peer join our swarm via listening port')
 
         t.equal(swarm1.wires.length, 1)
         t.ok(wire.remoteAddress.indexOf('127.0.0.1:') === 0)

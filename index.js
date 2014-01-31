@@ -1,6 +1,8 @@
 // TODO:
 // - Support magnet metadata protocol for trackerless torrents
 // - What happens when a peer connects and handhsakes for an infoHash that we don't have?
+// - Add reconnect behavior for incoming connections, too
+//   - Need to discover their listening port first
 
 module.exports = Swarm
 // module.exports.Peer = Peer

@@ -7,7 +7,7 @@ var infoHash = 'd2474e86c95b19b8bcfdb92bc12c9d44667cfa36'
 var peerId1 = '-WW0001-' + hat(48)
 var peerId2 = '-WW0001-' + hat(48)
 
-test('timeout', function (t) {
+test('reconnect when peer disconnects', function (t) {
   t.plan(10)
 
   var swarm1 = new Swarm(infoHash, peerId1)
@@ -42,7 +42,6 @@ test('timeout', function (t) {
 
       var time2 = 0
       swarm2.on('wire', function (wire) {
-        console.log('WIRE2')
         if (time2 === 0) {
           t.ok(wire, 'Joined swarm, got wire')
           t.equal(swarm2.wires.length, 1)

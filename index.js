@@ -22,32 +22,40 @@ var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
  * A peer in the swarm. Comprised of a `net.Socket` and a `Wire`.
  *
  * @param {string} addr
- * @param {Socket} conn
  */
-function Peer (addr, conn) {
+function Peer (addr) {
   this.addr = addr
-  this.conn = conn
 
+  this.conn = null
   this.wire = null
 
-  // TODO
-  // this.reconnect = false
-  // this.retries = 0
-  // this.timeout = null
+  this._retries = 0
+  this._timeout = null
 }
 
 /**
  * Called once the peer's `conn` has connected (i.e. fired 'connect')
+ * @param {Socket} conn
  */
-Peer.prototype.onconnect = function () {
-  var conn = this.conn
+Peer.prototype.onconnect = function (conn) {
+  this.conn = conn
+  this.retries = 0
+
   var wire = this.wire = new Wire()
   wire.remoteAddress = this.addr
+  var destroy = once(function () {
+    this.conn.destroy()
+    this.conn = null
+  }.bind(this))
 
   // Close the wire when the connection is destroyed
-  conn.once('end', function () { conn.destroy() })
-  conn.once('error', function () { conn.destroy() })
+  conn.once('end', function () { destroy() })
+  conn.once('error', function () { destroy() })
   conn.once('close', function () { wire.end() })
+
+  wire.once('end', function () {
+    this.wire = null
+  }.bind(this))
 
   // Duplex streaming magic!
   conn.pipe(wire).pipe(conn)
@@ -135,8 +143,8 @@ Pool.prototype._onconn = function (conn) {
   // On incoming connections, we expect the remote peer to send a handshake
   // first. Based on the infoHash in that handshake, route the peer to the
   // right swarm.
-  var peer = new Peer(addr, conn)
-  peer.onconnect()
+  var peer = new Peer(addr)
+  peer.onconnect(conn)
 
   // TODO: add timeout to wait for handshake for
 
@@ -151,7 +159,7 @@ Pool.prototype._onconn = function (conn) {
 
 Pool.prototype._onerror = function (err) {
   if (err.code == 'EADDRINUSE' && this._retries < 5) {
-    console.log('Address in use, retrying...')
+    console.error('Address in use, retrying...')
     setTimeout(function () {
       this._retries += 1
       this.server.close()
@@ -328,8 +336,8 @@ Swarm.prototype._remove = function (addr) {
   delete this._peers[addr]
   if (peer.node)
     this._queue.splice(this._queue.indexOf(peer), 1)
-  if (peer.timeout)
-    clearTimeout(peer.timeout)
+  if (peer._timeout)
+    clearTimeout(peer._timeout)
   if (peer.wire)
     peer.wire.destroy()
 }
@@ -378,33 +386,47 @@ Swarm.prototype._drain = function () {
   var peer = this._queue.shift()
   if (!peer) return
 
-  // if (peer.timeout) {
-  //   clearTimeout(peer.timeout)
-  //   peer.timeout = null
-  // }
+  if (this.timeout) {
+    clearTimeout(this.timeout)
+    this.timeout = null
+  }
 
   var parts = peer.addr.split(':')
-  var conn = peer.conn = net.connect(parts[1], parts[0])
+  var conn = net.connect(parts[1], parts[0])
 
-  conn.on('connect', function () {
-    peer.onconnect()
+  var onhandshake = function (infoHash) {
+    if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
+      return peer.conn.destroy()
+    this._onwire(peer)
+  }.bind(this)
+
+  var onconnect = function () {
+    peer.onconnect(conn)
     this._onconn(peer)
 
-    peer.wire.handshake(this.infoHash, this.peerId, this.extensions)
+    var wire = peer.wire
+    wire.on('handshake', onhandshake)
 
-    peer.wire.on('handshake', function (infoHash) {
-      if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
-        return peer.conn.destroy()
-      this._onwire(peer)
+    // When wire dies, repeatedly attempt to reconnect to the peer, after a
+    // timeout, with exponential backoff.
+    wire.on('end', function () {
+      if (this._destroyed
+          || wire.destroyed
+          || peer.retries >= RECONNECT_WAIT.length)
+        return this._remove(peer.addr)
+
+      var readd = function () {
+        this._queue.push(peer)
+        this._drain()
+      }.bind(this)
+
+      peer.timeout = setTimeout(readd, RECONNECT_WAIT[peer.retries++])
     }.bind(this))
 
-  }.bind(this))
+    wire.handshake(this.infoHash, this.peerId, this.extensions)
+  }.bind(this)
 
-  // TODO
-  // wire.on('handshake', function (infoHash) {
-  //   this.reconnect = true
-  //   this.retries = 0
-  // }.bind(this))
+  conn.on('connect', onconnect)
 
   // Handshake
   // var timeout = setTimeout(function () {
@@ -425,18 +447,6 @@ Swarm.prototype._drain = function () {
   //       // metadata_size: xx
   //     })
   //   }
-
-  // var repush = function () {
-  //   peer.node = this._queue.push(peer)
-  //   this._drain()
-  // }.bind(this)
-
-  // wire.on('end', function () {
-  //   peer.wire = null
-  //   if (!peer.reconnect || this._destroyed || peer.retries >= RECONNECT_WAIT.length) return this._remove(peer.addr)
-  //   peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++])
-  // }.bind(this))
-
 }
 
 /**
@@ -474,11 +484,13 @@ Swarm.prototype._onwire = function (peer) {
   var conn = peer.conn
   var wire = peer.wire
 
+  // Track total bytes downloaded by the swarm
   wire.on('download', function (downloaded) {
     this.downloaded += downloaded
     this.emit('download', downloaded)
   }.bind(this))
 
+  // Track total bytes uploaded by the swarm
   wire.on('upload', function (uploaded) {
     this.uploaded += uploaded
     this.emit('upload', uploaded)

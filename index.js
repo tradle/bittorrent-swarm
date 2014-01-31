@@ -440,14 +440,6 @@ Swarm.prototype._drain = function () {
   //   console.log(extensions)
   //   clearTimeout(timeout)
 
-  //   if (extensions.extended) {
-  //     wire.extended(0, {
-  //       m: {
-  //         ut_metadata: 1
-  //       }
-  //       // TODO - this should be set once we have metadata
-  //       // metadata_size: xx
-  //     })
   //   }
 }
 

@@ -1,9 +1,3 @@
-// TODO:
-// - Support magnet metadata protocol for trackerless torrents
-// - What happens when a peer connects and handhsakes for an infoHash that we don't have?
-// - Add reconnect behavior for incoming connections, too
-//   - Need to discover their listening port first
-
 module.exports = Swarm
 
 var EventEmitter = require('events').EventEmitter
@@ -153,6 +147,9 @@ Pool.prototype._onconn = function (conn) {
   peer.wire.on('handshake', function (infoHash, peerId, extensions) {
     clearTimeout(timeout)
     var swarm = this.swarms[infoHash.toString('hex')]
+
+    // Destroy connections from peers that handshake for an infoHash not in
+    // this pool.
     if (!swarm)
       return conn.destroy()
 

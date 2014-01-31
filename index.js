@@ -29,8 +29,8 @@ function Peer (addr) {
   this.conn = null
   this.wire = null
 
-  this._retries = 0
-  this._timeout = null
+  this.timeout = null
+  this.retries = 0
 }
 
 /**
@@ -39,7 +39,6 @@ function Peer (addr) {
  */
 Peer.prototype.onconnect = function (conn) {
   this.conn = conn
-  this.retries = 0
 
   var wire = this.wire = new Wire()
   wire.remoteAddress = this.addr
@@ -340,8 +339,8 @@ Swarm.prototype._remove = function (addr) {
   delete this._peers[addr]
   if (peer.node)
     this._queue.splice(this._queue.indexOf(peer), 1)
-  if (peer._timeout)
-    clearTimeout(peer._timeout)
+  if (peer.timeout)
+    clearTimeout(peer.timeout)
   if (peer.wire)
     peer.wire.destroy()
 }
@@ -392,9 +391,9 @@ Swarm.prototype._drain = function () {
   var peer = this._queue.shift()
   if (!peer) return
 
-  if (this.timeout) {
-    clearTimeout(this.timeout)
-    this.timeout = null
+  if (peer.timeout) {
+    clearTimeout(peer.timeout)
+    peer.timeout = null
   }
 
   var parts = peer.addr.split(':')
@@ -475,6 +474,8 @@ Swarm.prototype._onconn = function (peer) {
 Swarm.prototype._onwire = function (peer) {
   var conn = peer.conn
   var wire = peer.wire
+
+  peer.retries = 0
 
   // Track total bytes downloaded by the swarm
   wire.on('download', function (downloaded) {

@@ -5,8 +5,6 @@
 //   - Need to discover their listening port first
 
 module.exports = Swarm
-// module.exports.Peer = Peer
-// module.exports.Pool = Pool
 
 var EventEmitter = require('events').EventEmitter
 var inherits = require('inherits')
@@ -148,9 +146,13 @@ Pool.prototype._onconn = function (conn) {
   var peer = new Peer(addr)
   peer.onconnect(conn)
 
-  // TODO: add timeout to wait for handshake for
+  // Peer must send handshake in timely manner - they connected to us after all
+  var timeout = setTimeout(function () {
+    conn.destroy()
+  }, HANDSHAKE_TIMEOUT)
 
   peer.wire.on('handshake', function (infoHash, peerId, extensions) {
+    clearTimeout(timeout)
     var swarm = this.swarms[infoHash.toString('hex')]
     if (!swarm)
       return conn.destroy()
@@ -374,7 +376,9 @@ Swarm.prototype.destroy = function() {
   }.bind(this))
 }
 
-
+//
+// HELPER METHODS
+//
 
 /**
  * Pop a peer off the FIFO queue and connect to it. When _drain() gets called,
@@ -396,7 +400,13 @@ Swarm.prototype._drain = function () {
   var parts = peer.addr.split(':')
   var conn = net.connect(parts[1], parts[0])
 
+  // Peer must respond to handshake in timely manner
+  var timeout = setTimeout(function () {
+    conn.destroy()
+  }, HANDSHAKE_TIMEOUT)
+
   var onhandshake = function (infoHash) {
+    clearTimeout(timeout)
     if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
       return peer.conn.destroy()
     this._onwire(peer)
@@ -429,18 +439,6 @@ Swarm.prototype._drain = function () {
   }.bind(this)
 
   conn.on('connect', onconnect)
-
-  // Handshake
-  // var timeout = setTimeout(function () {
-  //   conn.destroy()
-  // }, HANDSHAKE_TIMEOUT)
-
-  // wire.once('handshake', function (infoHash, peerId, extensions) {
-  //   console.log('HANDSHAKE SUCCESS, extensions:')
-  //   console.log(extensions)
-  //   clearTimeout(timeout)
-
-  //   }
 }
 
 /**
@@ -457,7 +455,7 @@ Swarm.prototype._onincoming = function (peer) {
 }
 
 //
-// HELPER METHODS
+// CONNECTION AND WIRE HANDLERS
 //
 
 /**

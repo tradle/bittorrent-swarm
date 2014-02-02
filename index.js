@@ -348,6 +348,7 @@ Swarm.prototype._remove = function (addr) {
  * @param  {function} onlistening
  */
 Swarm.prototype.listen = function (port, onlistening) {
+  console.log('Swarm listen')
   this.port = port
   if (onlistening)
     this.once('listening', onlistening)
@@ -396,6 +397,8 @@ Swarm.prototype._drain = function () {
   var parts = peer.addr.split(':')
   var conn = net.connect(parts[1], parts[0])
 
+  console.log('Connecting to ' + peer.addr)
+
   // Peer must respond to handshake in timely manner
   var timeout = setTimeout(function () {
     conn.destroy()
@@ -435,6 +438,9 @@ Swarm.prototype._drain = function () {
   }.bind(this)
 
   conn.on('connect', onconnect)
+  conn.on('error', function (err) {
+    console.log('Failed to connect to ' + peer.addr)
+  })
 }
 
 /**

@@ -1,21 +1,46 @@
 {
   "name": "bittorrent-swarm",
-  "version": "0.4.0",
   "description": "Simple, robust, BitTorrent swarm implementation",
-  "main": "index.js",
-  "dependencies": {
-    "bittorrent-protocol": "0.x",
-    "once": "~1.1.1",
-    "chrome-net": "1.x",
-    "inherits": "~2.0.1"
-  },
-  "devDependencies": {
-    "tape": "2.x",
-    "hat": "0.0.3",
-    "portfinder": "~0.2.1"
+  "version": "0.4.0",
+  "author": {
+    "name": "Feross Aboukhadijeh",
+    "email": "feross@feross.org",
+    "url": "http://feross.org/"
   },
   "browser": {
     "net": "./node_modules/chrome-net/index.js"
+  },
+  "bugs": {
+    "url": "https://github.com/feross/bittorrent-swarm/issues"
+  },
+  "dependencies": {
+    "bittorrent-protocol": "0.x",
+    "chrome-net": "1.x",
+    "inherits": "~2.0.1",
+    "once": "~1.1.1"
+  },
+  "devDependencies": {
+    "hat": "0.0.3",
+    "portfinder": "~0.2.1",
+    "tape": "2.x"
+  },
+  "homepage": "http://webtorrent.io",
+  "keywords": [
+    "torrent",
+    "bittorrent",
+    "protocol",
+    "swarm",
+    "stream",
+    "peer",
+    "wire",
+    "p2p",
+    "peer-to-peer"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/feross/bittorrent-swarm.git"
   },
   "scripts": {
     "test": "tape test/*.js"
@@ -29,29 +54,5 @@
       "safari/6..latest",
       "opera/15.0..latest"
     ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/feross/bittorrent-swarm.git"
-  },
-  "keywords": [
-    "torrent",
-    "bittorrent",
-    "protocol",
-    "swarm",
-    "stream",
-    "peer",
-    "wire",
-    "p2p",
-    "peer-to-peer"
-  ],
-  "author": {
-    "name": "Feross Aboukhadijeh",
-    "email": "feross@feross.org",
-    "url": "http://feross.org/"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/feross/bittorrent-swarm/issues"
   }
 }

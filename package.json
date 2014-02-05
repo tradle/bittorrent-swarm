@@ -1,7 +1,7 @@
 {
   "name": "bittorrent-swarm",
   "description": "Simple, robust, BitTorrent swarm implementation",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "Feross Aboukhadijeh",
     "email": "feross@feross.org",

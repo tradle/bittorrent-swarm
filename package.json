@@ -8,7 +8,8 @@
     "url": "http://feross.org/"
   },
   "browser": {
-    "net": "./node_modules/chrome-net/index.js"
+    "portfinder": "chrome-portfinder/index.js",
+    "net": "chrome-net/index.js"
   },
   "bugs": {
     "url": "https://github.com/feross/bittorrent-swarm/issues"
@@ -16,8 +17,10 @@
   "dependencies": {
     "bittorrent-protocol": "0.x",
     "chrome-net": "1.x",
+    "chrome-portfinder": "0.x",
     "inherits": "~2.0.1",
-    "once": "~1.1.1"
+    "once": "~1.1.1",
+    "portfinder": "~0.2.1"
   },
   "devDependencies": {
     "hat": "0.0.3",

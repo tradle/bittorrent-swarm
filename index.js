@@ -2,9 +2,13 @@ module.exports = Swarm
 
 var EventEmitter = require('events').EventEmitter
 var inherits = require('inherits')
-var net = require('net')
+var net = require('net') // or chrome-net
+var portfinder = require('portfinder') // or chrome-portfinder
 var once = require('once')
 var Wire = require('bittorrent-protocol')
+
+// Use random port above 1024
+portfinder.basePort = Math.floor(Math.random() * 60000) + 1025
 
 var MAX_SIZE = 100
 var HANDSHAKE_TIMEOUT = 5000
@@ -120,7 +124,7 @@ Pool.prototype._onlistening = function () {
   this.listening = true
   for (var infoHash in this.swarms) {
     var swarm = this.swarms[infoHash]
-    swarm.emit('listening')
+    swarm.emit('listening', this.port)
   }
 }
 
@@ -166,6 +170,7 @@ Pool.prototype._onerror = function (err) {
       this.server.listen(this.port)
     }.bind(this), 1000)
   } else {
+    this.listening = false
     this.swarms.forEach(function (swarm) {
       swarm.emit('error', 'Swarm listen error: ' + err.message)
     })
@@ -182,6 +187,7 @@ Pool.prototype.destroy = function (cb) {
   this.conns.forEach(function (conn) {
     conn.destroy()
   })
+  this.listening = false
   this.server.close(cb)
 }
 
@@ -201,8 +207,8 @@ Pool.prototype.addSwarm = function (swarm) {
   if (this.swarms[infoHash]) {
     process.nextTick(function () {
       swarm.emit('error', new Error('Swarm listen error: There is already a ' +
-        'swarm with infoHash ' + swarm.infoHash + ' listening on port ' +
-        swarm.port))
+        'swarm with infoHash ' + swarm.infoHash.toString('hex') +
+        ' listening on port ' + swarm.port))
     })
     return
   }
@@ -344,16 +350,29 @@ Swarm.prototype._remove = function (addr) {
 
 /**
  * Listen on the given port for peer connections.
- * @param  {number} port
+ * @param  {number=} port
  * @param  {function} onlistening
  */
 Swarm.prototype.listen = function (port, onlistening) {
-  console.log('Swarm listen')
-  this.port = port
+  if (typeof port === 'function') {
+    onlistening = port
+    port = undefined
+  }
+
   if (onlistening)
     this.once('listening', onlistening)
 
-  Pool.add(this)
+  var onPort = function (err, port) {
+    if (err)
+      return this.emit('error', err)
+    this.port = port
+    Pool.add(this)
+  }.bind(this)
+
+  if (port)
+    onPort(null, port)
+  else
+    portfinder.getPort(onPort)
 }
 
 /**

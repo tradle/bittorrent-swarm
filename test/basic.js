@@ -49,6 +49,8 @@ test('swarm join', function (t) {
       t.equal(swarm1.wires.length, 0)
       t.equal(swarm2.wires.length, 0)
 
+      swarm2.add('127.0.0.1:' + swarm1.port)
+
       swarm1.on('wire', function (wire) {
         t.ok(wire, 'Peer join our swarm via listening port')
 
@@ -63,13 +65,11 @@ test('swarm join', function (t) {
         t.ok(wire, 'Joined swarm, got wire')
 
         t.equal(swarm2.wires.length, 1)
-        t.equal(wire.remoteAddress, '127.0.0.1:8000')
+        t.equal(wire.remoteAddress, '127.0.0.1:' + swarm1.port)
         t.equal(wire.peerId.toString('utf8'), peerId1)
 
         swarm2.destroy()
       })
-
-      swarm2.add('127.0.0.1:' + swarm1.port)
     })
   })
 })

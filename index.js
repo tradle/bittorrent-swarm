@@ -274,6 +274,15 @@ function Swarm (infoHash, peerId, extensions) {
   this._destroyed = false
 }
 
+Object.defineProperty(Swarm.prototype, 'ratio', {
+  get: function () {
+    if (this.downloaded === 0)
+      return 0
+    else
+      return this.uploaded / this.downloaded
+  }
+})
+
 Object.defineProperty(Swarm.prototype, 'numQueued', {
   get: function () {
     return this._queue.length

@@ -162,7 +162,7 @@ Pool.prototype._onconn = function (conn) {
 }
 
 Pool.prototype._onerror = function (err) {
-  if (err.code == 'EADDRINUSE' && this._retries < 5) {
+  if (err.code === 'EADDRINUSE' && this._retries < 5) {
     console.error('Address in use, retrying...')
     setTimeout(function () {
       this._retries += 1

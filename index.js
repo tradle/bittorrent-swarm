@@ -307,6 +307,7 @@ Object.defineProperty(Swarm.prototype, 'numConns', {
  */
 Swarm.prototype.add = function (addr) {
   if (this._destroyed || this._peers[addr]) return
+  if (!validAddr(addr)) return
 
   var peer = new Peer(addr)
   this._peers[addr] = peer
@@ -532,4 +533,14 @@ Swarm.prototype._onwire = function (peer) {
 
   this.wires.push(wire)
   this.emit('wire', wire)
+}
+
+/**
+ * Is the address valid?
+ * @param  {string} addr
+ * @return {boolean}
+ */
+function validAddr (addr) {
+  var port = Number(addr.split(':')[1]);
+  return port > 0 && port < 65535;
 }

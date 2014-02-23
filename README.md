@@ -1,8 +1,8 @@
 # bittorrent-swarm
-[![Build Status](http://img.shields.io/travis/feross/bittorrent-swarm.png)](https://travis-ci.org/feross/bittorrent-swarm)
-[![NPM Version](http://img.shields.io/npm/v/bittorrent-swarm.png)](https://npmjs.org/package/bittorrent-swarm)
-[![NPM](http://img.shields.io/npm/dm/bittorrent-swarm.png)](https://npmjs.org/package/bittorrent-swarm)
-[![Gittip](http://img.shields.io/gittip/feross.png)](https://www.gittip.com/feross/)
+[![Build Status](http://img.shields.io/travis/feross/bittorrent-swarm.svg)](https://travis-ci.org/feross/bittorrent-swarm)
+[![NPM Version](http://img.shields.io/npm/v/bittorrent-swarm.svg)](https://npmjs.org/package/bittorrent-swarm)
+[![NPM](http://img.shields.io/npm/dm/bittorrent-swarm.svg)](https://npmjs.org/package/bittorrent-swarm)
+[![Gittip](http://img.shields.io/gittip/feross.svg)](https://www.gittip.com/feross/)
 
 ### Simple, robust, BitTorrent "swarm" implementation
 

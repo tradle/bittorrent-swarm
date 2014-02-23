@@ -301,6 +301,12 @@ Object.defineProperty(Swarm.prototype, 'numConns', {
   }
 })
 
+Object.defineProperty(Swarm.prototype, 'numPeers', {
+  get: function () {
+    return this.wires.length
+  }
+})
+
 /**
  * Add a peer to the swarm.
  * @param {string} addr  ip address and port (ex: 12.34.56.78:12345)

@@ -3,8 +3,9 @@ module.exports = Swarm
 var EventEmitter = require('events').EventEmitter
 var inherits = require('inherits')
 var net = require('net') // or chrome-net
-var portfinder = require('portfinder') // or chrome-portfinder
 var once = require('once')
+var portfinder = require('portfinder') // or chrome-portfinder
+var speedometer = require('speedometer')
 var Wire = require('bittorrent-protocol')
 
 // Use random port above 1024
@@ -260,10 +261,11 @@ function Swarm (infoHash, peerId, extensions) {
     : peerId
 
   this.extensions = extensions
-
   this.port = 0
   this.downloaded = 0
   this.uploaded = 0
+  this.downloadSpeed = speedometer()
+  this.uploadSpeed = speedometer()
 
   this.wires = [] // open wires (added *after* handshake)
 
@@ -518,12 +520,14 @@ Swarm.prototype._onwire = function (peer) {
   // Track total bytes downloaded by the swarm
   wire.on('download', function (downloaded) {
     this.downloaded += downloaded
+    this.downloadSpeed(downloaded)
     this.emit('download', downloaded)
   }.bind(this))
 
   // Track total bytes uploaded by the swarm
   wire.on('upload', function (uploaded) {
     this.uploaded += uploaded
+    this.uploadSpeed(uploaded)
     this.emit('upload', uploaded)
   }.bind(this))
 
@@ -547,6 +551,6 @@ Swarm.prototype._onwire = function (peer) {
  * @return {boolean}
  */
 function validAddr (addr) {
-  var port = Number(addr.split(':')[1]);
-  return port > 0 && port < 65535;
+  var port = Number(addr.split(':')[1])
+  return port > 0 && port < 65535
 }

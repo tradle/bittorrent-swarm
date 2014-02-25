@@ -20,7 +20,8 @@
     "chrome-portfinder": "0.x",
     "inherits": "~2.0.1",
     "once": "~1.1.1",
-    "portfinder": "~0.2.1"
+    "portfinder": "~0.2.1",
+    "speedometer": "^0.1.2"
   },
   "devDependencies": {
     "hat": "0.0.3",

@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "bittorrent-protocol": "0.x",
-    "chrome-net": "1.x",
+    "chrome-net": "2.x",
     "chrome-portfinder": "0.x",
     "inherits": "~2.0.1",
     "once": "~1.1.1",

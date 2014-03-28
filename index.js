@@ -245,12 +245,14 @@ inherits(Swarm, EventEmitter)
  *
  * @param {Buffer|string} infoHash
  * @param {Buffer|string} peerId
- * @param {Object} extensions
+ * @param {Object} opts
  */
-function Swarm (infoHash, peerId, extensions) {
+function Swarm (infoHash, peerId, opts) {
   if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId)
 
   EventEmitter.call(this)
+
+  opts = opts || {}
 
   this.infoHash = typeof infoHash === 'string'
     ? new Buffer(infoHash, 'hex')
@@ -260,7 +262,7 @@ function Swarm (infoHash, peerId, extensions) {
     ? new Buffer(peerId, 'utf8')
     : peerId
 
-  this.extensions = extensions
+  this.handshake = opts.handshake // handshake extensions
   this.port = 0
   this.downloaded = 0
   this.uploaded = 0
@@ -471,7 +473,7 @@ Swarm.prototype._drain = function () {
       peer.timeout = setTimeout(readd, RECONNECT_WAIT[peer.retries++])
     }.bind(this))
 
-    wire.handshake(this.infoHash, this.peerId, this.extensions)
+    wire.handshake(this.infoHash, this.peerId, this.handshake)
   }.bind(this)
 
   conn.on('connect', onconnect)
@@ -487,7 +489,7 @@ Swarm.prototype._drain = function () {
  */
 Swarm.prototype._onincoming = function (peer) {
   this._peers[peer.wire.remoteAddress] = peer
-  peer.wire.handshake(this.infoHash, this.peerId, this.extensions)
+  peer.wire.handshake(this.infoHash, this.peerId, this.handshake)
 
   this._onconn(peer)
   this._onwire(peer)

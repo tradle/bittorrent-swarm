@@ -47,7 +47,7 @@ test('reconnect when peer disconnects', function (t) {
           t.equal(swarm2.wires.length, 1)
 
           wire.on('end', function () {
-            t.pass('Wire ended by remote peer')
+            t.pass('Wire ended by remote peer')
             t.equal(swarm1.wires.length, 0)
           })
 

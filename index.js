@@ -12,7 +12,7 @@ var Wire = require('bittorrent-protocol')
 portfinder.basePort = Math.floor(Math.random() * 60000) + 1025
 
 var MAX_SIZE = 100
-var HANDSHAKE_TIMEOUT = 5000
+var HANDSHAKE_TIMEOUT = 25000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
 
 /**

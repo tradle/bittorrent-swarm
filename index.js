@@ -397,8 +397,13 @@ Swarm.prototype.listen = function (port, onlistening) {
 
 /**
  * Destroy the swarm, close all open peer connections, and do cleanup.
+ * @param {function} cb
  */
-Swarm.prototype.destroy = function () {
+Swarm.prototype.destroy = function (cb) {
+  if (cb) {
+    this.once('close', cb)
+  }
+
   this._destroyed = true
 
   for (var addr in this._peers) {

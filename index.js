@@ -11,7 +11,7 @@ var Wire = require('bittorrent-protocol')
 // Use random port above 1024
 portfinder.basePort = Math.floor(Math.random() * 60000) + 1025
 
-var MAX_SIZE = 100
+var MAX_CONNS = 55
 var HANDSHAKE_TIMEOUT = 25000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
 
@@ -268,11 +268,14 @@ function Swarm (infoHash, peerId, opts) {
   this.uploaded = 0
   this.downloadSpeed = speedometer()
   this.uploadSpeed = speedometer()
+  this.maxConns = opts.maxConns || MAX_CONNS
 
   this.wires = [] // open wires (added *after* handshake)
 
   this._queue = [] // queue of peers to connect to
   this._peers = {} // connected peers (addr -> Peer)
+  
+  this._connTimeouts = [] // list of connection attempts in progress
 
   this._paused = false
   this._destroyed = false
@@ -308,6 +311,14 @@ Object.defineProperty(Swarm.prototype, 'numConns', {
 Object.defineProperty(Swarm.prototype, 'numPeers', {
   get: function () {
     return this.wires.length
+  }
+})
+
+Object.defineProperty(Swarm.prototype, 'numRequests', {
+  get: function () {
+    return this.wires.reduce(function (numRequests, wire) {
+      return numRequests + wire.requests.length
+    }, 0)
   }
 })
 
@@ -409,6 +420,11 @@ Swarm.prototype.destroy = function (cb) {
   for (var addr in this._peers) {
     this._remove(addr)
   }
+  
+  this._connTimeouts.forEach(function (conn) {
+    clearTimeout(conn.timeout)
+    conn.destroy()
+  })
 
   Pool.remove(this)
 
@@ -424,11 +440,13 @@ Swarm.prototype.destroy = function (cb) {
 /**
  * Pop a peer off the FIFO queue and connect to it. When _drain() gets called,
  * the queue will usually have only one peer in it, except when there are too
- * many peers (over `this.maxSize`) in which case they will just sit in the queue
- * until another connection closes.
+ * many peers (over `this.maxConns`) in which case they will just sit in the 
+ * queue until another connection closes.
  */
 Swarm.prototype._drain = function () {
-  if (this.numConns >= MAX_SIZE || this._paused) return
+  var self = this
+  if (this._paused || this._destroyed || this.numConns >= this.maxConns)
+    return
 
   var peer = this._queue.shift()
   if (!peer) return
@@ -441,17 +459,24 @@ Swarm.prototype._drain = function () {
   var parts = peer.addr.split(':')
   var conn = net.connect(parts[1], parts[0])
 
-  console.log('Connecting to ' + peer.addr)
+  console.log('Connecting to ' + peer.addr, '(numConns', this.numConns, 'numPeers', this.numPeers + ')')
 
   // Peer must respond to handshake in timely manner
   var timeout = setTimeout(function () {
     conn.destroy()
+    self._connTimeouts.splice(self._connTimeouts.indexOf(conn), 1)
   }, HANDSHAKE_TIMEOUT)
+  
+  conn.timeout = timeout
+  this._connTimeouts.push(conn)
 
   var onhandshake = function (infoHash) {
     clearTimeout(timeout)
-    if (infoHash.toString('hex') !== this.infoHash.toString('hex'))
+    this._connTimeouts.splice(this._connTimeouts.indexOf(conn), 1)
+    
+    if (this._destroyed || infoHash.toString('hex') !== this.infoHash.toString('hex'))
       return peer.conn.destroy()
+    
     this._onwire(peer)
   }.bind(this)
 

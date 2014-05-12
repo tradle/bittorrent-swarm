@@ -262,8 +262,8 @@ function Swarm (infoHash, peerId, opts) {
     ? new Buffer(peerId, 'utf8')
     : peerId
 
-  this.log = opts.log || function () {}
-  
+  this.log = opts.log || console.log
+
   this.handshake = opts.handshake // handshake extensions
   this.port = 0
   this.downloaded = 0

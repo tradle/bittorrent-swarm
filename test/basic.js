@@ -65,7 +65,7 @@ test('swarm join', function (t) {
         t.ok(wire, 'Joined swarm, got wire')
 
         t.equal(swarm2.wires.length, 1)
-        t.equal(wire.remoteAddress, '127.0.0.1:' + swarm1.port)
+        t.ok(wire.remoteAddress.indexOf('127.0.0.1:') === 0)
         t.equal(wire.peerId.toString('utf8'), peerId1)
 
         swarm2.destroy()

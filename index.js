@@ -248,7 +248,7 @@ inherits(Swarm, EventEmitter)
  * @param {Object} opts
  */
 function Swarm (infoHash, peerId, opts) {
-  if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId)
+  if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId, opts)
 
   EventEmitter.call(this)
 
@@ -276,7 +276,7 @@ function Swarm (infoHash, peerId, opts) {
 
   this._queue = [] // queue of peers to connect to
   this._peers = {} // connected peers (addr -> Peer)
-  
+
   this._connTimeouts = [] // list of connection attempts in progress
 
   this._paused = false
@@ -294,7 +294,7 @@ Object.defineProperty(Swarm.prototype, 'ratio', {
 
 Object.defineProperty(Swarm.prototype, 'numQueued', {
   get: function () {
-    return this._queue.length
+    return this._queue.length + Object.keys(this._peers).length - this.numConns
   }
 })
 
@@ -422,7 +422,7 @@ Swarm.prototype.destroy = function (cb) {
   for (var addr in this._peers) {
     this._remove(addr)
   }
-  
+
   this._connTimeouts.forEach(function (conn) {
     clearTimeout(conn.timeout)
     conn.destroy()
@@ -442,7 +442,7 @@ Swarm.prototype.destroy = function (cb) {
 /**
  * Pop a peer off the FIFO queue and connect to it. When _drain() gets called,
  * the queue will usually have only one peer in it, except when there are too
- * many peers (over `this.maxConns`) in which case they will just sit in the 
+ * many peers (over `this.maxConns`) in which case they will just sit in the
  * queue until another connection closes.
  */
 Swarm.prototype._drain = function () {
@@ -468,17 +468,17 @@ Swarm.prototype._drain = function () {
     conn.destroy()
     self._connTimeouts.splice(self._connTimeouts.indexOf(conn), 1)
   }, HANDSHAKE_TIMEOUT)
-  
+
   conn.timeout = timeout
   this._connTimeouts.push(conn)
 
   var onhandshake = function (infoHash) {
     clearTimeout(timeout)
     this._connTimeouts.splice(this._connTimeouts.indexOf(conn), 1)
-    
+
     if (this._destroyed || infoHash.toString('hex') !== this.infoHash.toString('hex'))
       return peer.conn.destroy()
-    
+
     this._onwire(peer)
   }.bind(this)
 

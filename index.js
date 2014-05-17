@@ -229,7 +229,6 @@ Pool.prototype.removeSwarm = function (swarm) {
     this.destroy()
 }
 
-
 inherits(Swarm, EventEmitter)
 
 /**
@@ -534,7 +533,7 @@ Swarm.prototype._onincoming = function (peer) {
 
 /**
  * Called whenever a new connection is connected.
- * @param  {Socket} conn
+ * @param {Socket} peer
  */
 Swarm.prototype._onconn = function (peer) {
   peer.conn.once('close', function () {

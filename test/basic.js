@@ -4,6 +4,7 @@ var Swarm = require('../')
 var test = require('tape')
 
 var infoHash = 'd2474e86c95b19b8bcfdb92bc12c9d44667cfa36'
+var infoHash2 = 'd2474e86c95b19b8bcfdb92bc12c9d44667cfa37'
 var peerId1 = '-WW0001-' + hat(48)
 var peerId2 = '-WW0001-' + hat(48)
 
@@ -31,6 +32,33 @@ test('swarm listen', function (t) {
     swarm.on('listening', function () {
       t.equal(swarm.port, port, 'listened on requested port ' + port)
       swarm.destroy()
+    })
+  })
+})
+
+test('two swarms listen', function (t) {
+  t.plan(6)
+
+  var swarm = new Swarm(infoHash, peerId1)
+  t.equal(swarm.port, 0, 'port param initialized to 0')
+  portfinder.getPort(function (err, port) {
+    if (err) throw err
+    swarm.listen(port)
+
+    swarm.on('listening', function (portReceived) {
+      t.equal(swarm.port, portReceived, 'listened on requested port ' + port)
+      t.equal(swarm.port, port, 'listened on requested port ' + port)
+
+      var swarm2 = new Swarm(infoHash2, peerId1)
+      t.equal(swarm2.port, 0, 'port param initialized to 0')
+      swarm2.listen(port)
+      swarm2.on('listening', function (portReceived) {
+        t.equal(swarm2.port, portReceived, 'listened on requested port ' + port)
+        t.equal(swarm2.port, port, 'listened on requested port ' + port)
+        swarm.destroy()
+        swarm2.destroy()
+      })
+
     })
   })
 })

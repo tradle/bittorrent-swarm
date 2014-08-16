@@ -3,10 +3,11 @@ module.exports = Swarm
 var debug = require('debug')('bittorrent-swarm')
 var EventEmitter = require('events').EventEmitter
 var inherits = require('inherits')
-var net = require('net') // or chrome-net
+var net = require('net')
 var once = require('once')
-var portfinder = require('portfinder') // or chrome-portfinder
+var portfinder = require('portfinder')
 var speedometer = require('speedometer')
+var thunky = require('thunky')
 var Wire = require('bittorrent-protocol')
 
 // Use random port above 1024
@@ -15,6 +16,10 @@ portfinder.basePort = Math.floor(Math.random() * 60000) + 1025
 var MAX_CONNS = 55
 var HANDSHAKE_TIMEOUT = 25000
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000]
+
+var getImplicitListenPort = thunky(function (cb) {
+  portfinder.getPort(cb)
+})
 
 /**
  * Peer
@@ -126,6 +131,8 @@ Pool.prototype._onlistening = function () {
   this.listening = true
   for (var infoHash in this.swarms) {
     var swarm = this.swarms[infoHash]
+    debug('listening')
+    swarm.listening = true
     swarm.emit('listening', this.port)
   }
 }
@@ -262,6 +269,7 @@ function Swarm (infoHash, peerId, opts) {
     ? new Buffer(peerId, 'utf8')
     : peerId
 
+  this.listening = false
   this.handshake = opts.handshake // handshake extensions
   this.port = 0
   this.downloaded = 0
@@ -390,8 +398,9 @@ Swarm.prototype.listen = function (port, onlistening) {
     port = undefined
   }
 
-  if (onlistening)
-    this.once('listening', onlistening)
+  if (onlistening) this.once('listening', onlistening)
+
+  if (this.listening) throw new Error('already listening')
 
   var onPort = function (err, port) {
     if (err)
@@ -403,7 +412,7 @@ Swarm.prototype.listen = function (port, onlistening) {
   if (port)
     onPort(null, port)
   else
-    portfinder.getPort(onPort)
+    getImplicitListenPort(onPort)
 }
 
 /**
@@ -416,6 +425,7 @@ Swarm.prototype.destroy = function (cb) {
   }
 
   this._destroyed = true
+  this.listening = false
 
   for (var addr in this._peers) {
     this._remove(addr)

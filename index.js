@@ -181,7 +181,7 @@ Pool.prototype._onerror = function (err) {
   } else {
     this.listening = false
     this.swarms.forEach(function (swarm) {
-      swarm.emit('error', 'Swarm listen error: ' + err.message)
+      swarm.emit('error', 'Swarm error: ' + err.message)
     })
   }
 }
@@ -397,22 +397,17 @@ Swarm.prototype.listen = function (port, onlistening) {
     onlistening = port
     port = undefined
   }
-
+  if (this.listening) throw new Error('swarm already listening')
   if (onlistening) this.once('listening', onlistening)
 
-  if (this.listening) throw new Error('already listening')
-
   var onPort = function (err, port) {
-    if (err)
-      return this.emit('error', err)
+    if (err) return this.emit('error', err)
     this.port = port
     Pool.add(this)
   }.bind(this)
 
-  if (port)
-    onPort(null, port)
-  else
-    getImplicitListenPort(onPort)
+  if (port) onPort(null, port)
+  else getImplicitListenPort(onPort)
 }
 
 /**
@@ -454,7 +449,6 @@ Swarm.prototype.destroy = function (cb) {
  * queue until another connection closes.
  */
 Swarm.prototype._drain = function () {
-  var self = this
   if (this._paused || this._destroyed || this.numConns >= this.maxConns)
     return
 
@@ -474,8 +468,8 @@ Swarm.prototype._drain = function () {
   // Peer must respond to handshake in timely manner
   var timeout = setTimeout(function () {
     conn.destroy()
-    self._connTimeouts.splice(self._connTimeouts.indexOf(conn), 1)
-  }, HANDSHAKE_TIMEOUT)
+    this._connTimeouts.splice(this._connTimeouts.indexOf(conn), 1)
+  }.bind(this), HANDSHAKE_TIMEOUT)
 
   conn.timeout = timeout
   this._connTimeouts.push(conn)

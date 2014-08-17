@@ -338,6 +338,7 @@ Object.defineProperty(Swarm.prototype, 'numRequests', {
 Swarm.prototype.addPeer = function (addr) {
   if (this.destroyed || this._peers[addr]) return
   if (!validAddr(addr)) return
+  debug('addPeer %s', addr)
 
   var peer = new Peer(addr)
   this._peers[addr] = peer
@@ -368,6 +369,7 @@ Swarm.prototype.resume = function () {
  * @param  {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
 Swarm.prototype.removePeer = function (addr) {
+  debug('removePeer %s', addr)
   this._removePeer(addr)
   this._drain()
 }
@@ -379,6 +381,7 @@ Swarm.prototype.removePeer = function (addr) {
 Swarm.prototype._removePeer = function (addr) {
   var peer = this._peers[addr]
   if (!peer) return
+  debug('_removePeer %s', addr)
   delete this._peers[addr]
   if (peer.node)
     this._queue.splice(this._queue.indexOf(peer), 1)
@@ -471,7 +474,7 @@ Swarm.prototype._drain = function () {
   var parts = peer.addr.split(':')
   var conn = net.connect(parts[1], parts[0])
 
-  debug('Connecting to ' + peer.addr, '(numConns', this.numConns, 'numPeers', this.numPeers + ')')
+  debug('connect to %s (numConns %s numPeers %s)', peer.addr, this.numConns, this.numPeers)
 
   // Peer must respond to handshake in timely manner
   var timeout = setTimeout(function () {
@@ -520,7 +523,7 @@ Swarm.prototype._drain = function () {
 
   conn.on('connect', onconnect)
   conn.on('error', function (err) {
-    debug('Failed to connect to ' + peer.addr)
+    debug('failed to connect %s', peer.addr)
     // TODO: retry or end connection?
   })
 }

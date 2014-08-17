@@ -287,7 +287,7 @@ function Swarm (infoHash, peerId, opts) {
   this._connTimeouts = [] // list of connection attempts in progress
 
   this._paused = false
-  this._destroyed = false
+  this.destroyed = false
 }
 
 Object.defineProperty(Swarm.prototype, 'ratio', {
@@ -336,7 +336,7 @@ Object.defineProperty(Swarm.prototype, 'numRequests', {
  * @param {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
 Swarm.prototype.add = function (addr) {
-  if (this._destroyed || this._peers[addr]) return
+  if (this.destroyed || this._peers[addr]) return
   if (!validAddr(addr)) return
 
   var peer = new Peer(addr)
@@ -400,9 +400,11 @@ Swarm.prototype.listen = function (port, onlistening) {
   }
   if (this.listening) throw new Error('swarm already listening')
   if (onlistening) this.once('listening', onlistening)
+  debug('listen %s', port)
 
   var onPort = function (err, port) {
     if (err) return this.emit('error', err)
+    if (this.destroyed) return
     this.port = port
     Pool.add(this)
   }.bind(this)
@@ -423,11 +425,9 @@ Swarm.prototype.listen = function (port, onlistening) {
  * @param {function} cb
  */
 Swarm.prototype.destroy = function (cb) {
-  if (cb) {
-    this.once('close', cb)
-  }
+  if (cb) this.once('close', cb)
 
-  this._destroyed = true
+  this.destroyed = true
   this.listening = false
 
   for (var addr in this._peers) {
@@ -457,7 +457,7 @@ Swarm.prototype.destroy = function (cb) {
  * queue until another connection closes.
  */
 Swarm.prototype._drain = function () {
-  if (this._paused || this._destroyed || this.numConns >= this.maxConns)
+  if (this._paused || this.destroyed || this.numConns >= this.maxConns)
     return
 
   var peer = this._queue.shift()
@@ -486,7 +486,7 @@ Swarm.prototype._drain = function () {
     clearTimeout(timeout)
     this._connTimeouts.splice(this._connTimeouts.indexOf(conn), 1)
 
-    if (this._destroyed || infoHash.toString('hex') !== this.infoHashHex)
+    if (this.destroyed || infoHash.toString('hex') !== this.infoHashHex)
       return peer.conn.destroy()
 
     this._onwire(peer)
@@ -502,7 +502,7 @@ Swarm.prototype._drain = function () {
     // When wire dies, repeatedly attempt to reconnect to the peer, after a
     // timeout, with exponential backoff.
     wire.on('end', function () {
-      if (this._destroyed
+      if (this.destroyed
           || wire.destroyed
           || peer.retries >= RECONNECT_WAIT.length)
         return this._remove(peer.addr)

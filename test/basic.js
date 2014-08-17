@@ -105,7 +105,7 @@ test('swarm join', function (t) {
       t.equal(swarm1.wires.length, 0)
       t.equal(swarm2.wires.length, 0)
 
-      swarm2.add('127.0.0.1:' + swarm1.port)
+      swarm2.addPeer('127.0.0.1:' + swarm1.port)
 
       swarm1.on('wire', function (wire) {
         t.ok(wire, 'Peer join our swarm via listening port')

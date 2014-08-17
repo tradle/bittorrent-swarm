@@ -42,7 +42,7 @@ test('timeout if no handshake', function (t) {
         t.fail('Should not get a wire because peer did not handshake')
       })
 
-      swarm2.add('127.0.0.1:' + swarm1.port)
+      swarm2.addPeer('127.0.0.1:' + swarm1.port)
     })
   })
 })

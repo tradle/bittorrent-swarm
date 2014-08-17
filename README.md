@@ -35,8 +35,8 @@ swarm.on('wire', function(wire) {
 	swarm.wires // <- list of all connected wires
 });
 
-swarm.add('127.0.0.1:42442') // add a peer
-swarm.remove('127.0.0.1:42244') // remove a peer
+swarm.addPeer('127.0.0.1:42442') // add a peer
+swarm.removePeer('127.0.0.1:42244') // remove a peer
 ```
 
 ## license

@@ -335,7 +335,7 @@ Object.defineProperty(Swarm.prototype, 'numRequests', {
  * Add a peer to the swarm.
  * @param {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
-Swarm.prototype.add = function (addr) {
+Swarm.prototype.addPeer = function (addr) {
   if (this.destroyed || this._peers[addr]) return
   if (!validAddr(addr)) return
 
@@ -367,8 +367,8 @@ Swarm.prototype.resume = function () {
  * Remove a peer from the swarm.
  * @param  {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
-Swarm.prototype.remove = function (addr) {
-  this._remove(addr)
+Swarm.prototype.removePeer = function (addr) {
+  this._removePeer(addr)
   this._drain()
 }
 
@@ -376,7 +376,7 @@ Swarm.prototype.remove = function (addr) {
  * Private method to remove a peer from the swarm without calling _drain().
  * @param  {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
-Swarm.prototype._remove = function (addr) {
+Swarm.prototype._removePeer = function (addr) {
   var peer = this._peers[addr]
   if (!peer) return
   delete this._peers[addr]
@@ -431,7 +431,7 @@ Swarm.prototype.destroy = function (cb) {
   this.listening = false
 
   for (var addr in this._peers) {
-    this._remove(addr)
+    this._removePeer(addr)
   }
 
   this._connTimeouts.forEach(function (conn) {
@@ -505,7 +505,7 @@ Swarm.prototype._drain = function () {
       if (this.destroyed
           || wire.destroyed
           || peer.retries >= RECONNECT_WAIT.length)
-        return this._remove(peer.addr)
+        return this._removePeer(peer.addr)
 
       var readd = function () {
         this._queue.push(peer)

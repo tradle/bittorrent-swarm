@@ -64,7 +64,7 @@ test('reconnect when peer disconnects', function (t) {
         time2 += 1
       })
 
-      swarm2.add('127.0.0.1:' + swarm1.port)
+      swarm2.addPeer('127.0.0.1:' + swarm1.port)
     })
   })
 })

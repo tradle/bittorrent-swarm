@@ -79,7 +79,7 @@ Peer.prototype.onconnect = function (conn) {
  */
 function Pool (port) {
   this.port = port
-  this.swarms = {} // infoHash -> Swarm
+  this.swarms = {} // infoHash (hex) -> Swarm
   this.listening = false
 
   // Keep track of incoming connections so we can destroy them if we need to
@@ -106,8 +106,7 @@ Pool.add = function (swarm) {
   var port = swarm.port
   var pool = Pool.pools[port]
 
-  if (!pool)
-    pool = Pool.pools[port] = new Pool(port)
+  if (!pool) pool = Pool.pools[port] = new Pool(port)
 
   pool.addSwarm(swarm)
 }
@@ -131,7 +130,7 @@ Pool.prototype._onlistening = function () {
   this.listening = true
   for (var infoHash in this.swarms) {
     var swarm = this.swarms[infoHash]
-    debug('listening')
+    debug('listening %s', this.port)
     swarm.listening = true
     swarm.emit('listening', this.port)
   }
@@ -209,6 +208,7 @@ Pool.prototype.addSwarm = function (swarm) {
 
   if (this.listening) {
     process.nextTick(function () {
+      debug('listening %s', swarm.port)
       swarm.emit('listening', swarm.port)
     })
   }
@@ -264,10 +264,12 @@ function Swarm (infoHash, peerId, opts) {
   this.infoHash = typeof infoHash === 'string'
     ? new Buffer(infoHash, 'hex')
     : infoHash
+  this.infoHashHex = this.infoHash.toString('hex')
 
   this.peerId = typeof peerId === 'string'
     ? new Buffer(peerId, 'utf8')
     : peerId
+  this.peerIdHex = this.peerId.toString('hex')
 
   this.listening = false
   this.handshake = opts.handshake // handshake extensions
@@ -407,7 +409,14 @@ Swarm.prototype.listen = function (port, onlistening) {
   }.bind(this)
 
   if (port) onPort(null, port)
-  else getImplicitListenPort(onPort)
+  else getImplicitListenPort(function (err, port) {
+    if (err)
+      onPort(err)
+    else if (Pool.pools[port] && Pool.pools[port].swarms[this.infoHashHex])
+      portfinder.getPort(onPort)
+    else
+      onPort(null, port)
+  }.bind(this))
 }
 
 /**

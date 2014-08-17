@@ -46,14 +46,14 @@ test('two swarms listen on same port (explicit)', function (t) {
     swarm.listen(port)
 
     swarm.on('listening', function (portReceived) {
-      t.equal(swarm.port, portReceived, 'listened on requested port ' + port)
+      t.equal(swarm.port, portReceived, 'port property matches event port')
       t.equal(swarm.port, port, 'listened on requested port ' + port)
 
       var swarm2 = new Swarm(infoHash2, peerId)
       t.equal(swarm2.port, 0, 'port param initialized to 0')
       swarm2.listen(port)
       swarm2.on('listening', function (portReceived) {
-        t.equal(swarm2.port, portReceived, 'listened on requested port ' + port)
+        t.equal(swarm2.port, portReceived, 'port property matches event port')
         t.equal(swarm2.port, port, 'listened on requested port ' + port)
         swarm.destroy()
         swarm2.destroy()

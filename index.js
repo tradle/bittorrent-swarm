@@ -171,7 +171,7 @@ Pool.prototype._onconn = function (conn) {
 
 Pool.prototype._onerror = function (err) {
   if (err.code === 'EADDRINUSE' && this._retries < 5) {
-    console.error('Address in use, retrying...')
+    debug('Address in use, retrying...')
     setTimeout(function () {
       this._retries += 1
       this.server.close()
@@ -204,7 +204,7 @@ Pool.prototype.destroy = function (cb) {
  * @param {Swarm} swarm
  */
 Pool.prototype.addSwarm = function (swarm) {
-  var infoHash = swarm.infoHash.toString('hex')
+  var infoHash = swarm.infoHashHex
 
   if (this.listening) {
     process.nextTick(function () {
@@ -216,8 +216,7 @@ Pool.prototype.addSwarm = function (swarm) {
   if (this.swarms[infoHash]) {
     process.nextTick(function () {
       swarm.emit('error', new Error('Swarm listen error: There is already a ' +
-        'swarm with infoHash ' + swarm.infoHash.toString('hex') +
-        ' listening on port ' + swarm.port))
+        'swarm with infoHash ' + swarm.infoHashHex + ' listening on port ' + swarm.port))
     })
     return
   }
@@ -230,7 +229,7 @@ Pool.prototype.addSwarm = function (swarm) {
  * @param  {Swarm} swarm
  */
 Pool.prototype.removeSwarm = function (swarm) {
-  var infoHash = swarm.infoHash.toString('hex')
+  var infoHash = swarm.infoHashHex
   delete this.swarms[infoHash]
 
   if (Object.keys(this.swarms).length === 0)
@@ -487,7 +486,7 @@ Swarm.prototype._drain = function () {
     clearTimeout(timeout)
     this._connTimeouts.splice(this._connTimeouts.indexOf(conn), 1)
 
-    if (this._destroyed || infoHash.toString('hex') !== this.infoHash.toString('hex'))
+    if (this._destroyed || infoHash.toString('hex') !== this.infoHashHex)
       return peer.conn.destroy()
 
     this._onwire(peer)

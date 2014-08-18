@@ -255,10 +255,8 @@ inherits(Swarm, EventEmitter)
  */
 function Swarm (infoHash, peerId, opts) {
   if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId, opts)
-
   EventEmitter.call(this)
-
-  opts = opts || {}
+  if (!opts) opts = {}
 
   this.infoHash = typeof infoHash === 'string'
     ? new Buffer(infoHash, 'hex')
@@ -269,6 +267,8 @@ function Swarm (infoHash, peerId, opts) {
     ? new Buffer(peerId, 'utf8')
     : peerId
   this.peerIdHex = this.peerId.toString('hex')
+
+  debug('new swarm i %s p %s', this.infoHashHex, this.peerIdHex)
 
   this.listening = false
   this.handshake = opts.handshake // handshake extensions
@@ -323,14 +323,6 @@ Object.defineProperty(Swarm.prototype, 'numPeers', {
   }
 })
 
-Object.defineProperty(Swarm.prototype, 'numRequests', {
-  get: function () {
-    return this.wires.reduce(function (numRequests, wire) {
-      return numRequests + wire.requests.length
-    }, 0)
-  }
-})
-
 /**
  * Add a peer to the swarm.
  * @param {string} addr  ip address and port (ex: 12.34.56.78:12345)
@@ -353,6 +345,7 @@ Swarm.prototype.addPeer = function (addr) {
  * or their wires.
  */
 Swarm.prototype.pause = function () {
+  debug('pause')
   this._paused = true
 }
 
@@ -360,6 +353,7 @@ Swarm.prototype.pause = function () {
  * Resume connecting to new peers.
  */
 Swarm.prototype.resume = function () {
+  debug('resume')
   this._paused = false
   this._drain()
 }
@@ -425,13 +419,15 @@ Swarm.prototype.listen = function (port, onlistening) {
 
 /**
  * Destroy the swarm, close all open peer connections, and do cleanup.
- * @param {function} cb
+ * @param {function} onclose
  */
-Swarm.prototype.destroy = function (cb) {
-  if (cb) this.once('close', cb)
-
+Swarm.prototype.destroy = function (onclose) {
+  if (this.destroyed) return
   this.destroyed = true
   this.listening = false
+  if (onclose) this.once('close', onclose)
+
+  debug('destroy')
 
   for (var addr in this._peers) {
     this._removePeer(addr)

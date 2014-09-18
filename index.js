@@ -1,5 +1,6 @@
 module.exports = Swarm
 
+var addrToIPPort = require('addr-to-ip-port')
 var debug = require('debug')('bittorrent-swarm')
 var EventEmitter = require('events').EventEmitter
 var inherits = require('inherits')
@@ -467,7 +468,7 @@ Swarm.prototype._drain = function () {
     peer.timeout = null
   }
 
-  var parts = peer.addr.split(':')
+  var parts = addrToIPPort(peer.addr)
   var conn = net.connect(parts[1], parts[0])
 
   debug('connect to %s (numConns %s numPeers %s)', peer.addr, this.numConns, this.numPeers)
@@ -595,6 +596,6 @@ Swarm.prototype._onwire = function (peer) {
  * @return {boolean}
  */
 function validAddr (addr) {
-  var port = Number(addr.split(':')[1])
+  var port = Number(addrToIPPort(addr)[1])
   return port > 0 && port < 65535
 }

@@ -11,6 +11,7 @@
     "url": "https://github.com/feross/bittorrent-swarm/issues"
   },
   "dependencies": {
+    "addr-to-ip-port": "^1.0.1",
     "bittorrent-protocol": "^1.2.0",
     "debug": "^2.0.0",
     "inherits": "^2.0.1",

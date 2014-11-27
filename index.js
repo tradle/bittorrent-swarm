@@ -283,10 +283,9 @@ function Swarm (infoHash, peerId, opts) {
   this.wires = [] // open wires (added *after* handshake)
 
   this._queue = [] // queue of peers to connect to
-  this._peers = { // connected peers (addr -> Peer)
-    index: {},
-    list: []
-  }
+
+  this._peers = {} // connected peers (addr -> Peer)
+  this._peersLength = 0 // number of elements in `this._peers` (cached for perf)
 
   this._connTimeouts = [] // list of connection attempts in progress
 
@@ -305,16 +304,17 @@ Object.defineProperty(Swarm.prototype, 'ratio', {
 
 Object.defineProperty(Swarm.prototype, 'numQueued', {
   get: function () {
-    return this._queue.length + this._peers.list.length - this.numConns
+    return this._queue.length + this._peersLength - this.numConns
   }
 })
 
 Object.defineProperty(Swarm.prototype, 'numConns', {
   get: function () {
-    return this._peers.list.reduce(function(summ, item) {
-      var conn = item.conn ? 1 : 0;
-      return summ + conn;
-    }, 0)
+    var numConns = 0
+    for (var addr in this._peers) {
+      numConns += this._peers[addr].conn ? 1 : 0
+    }
+    return numConns
   }
 })
 
@@ -329,13 +329,13 @@ Object.defineProperty(Swarm.prototype, 'numPeers', {
  * @param {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
 Swarm.prototype.addPeer = function (addr) {
-  if (this.destroyed || this._peers.index[addr]) return
+  if (this.destroyed || this._peers[addr]) return
   if (!validAddr(addr)) return
   debug('addPeer %s', addr)
 
   var peer = new Peer(addr)
-  this._peers.index[addr] = peer
-  this._peers.list.push(peer);
+  this._peers[addr] = peer
+  this._peersLength += 1
   this._queue.push(peer)
 
   this._drain()
@@ -375,11 +375,11 @@ Swarm.prototype.removePeer = function (addr) {
  * @param  {string} addr  ip address and port (ex: 12.34.56.78:12345)
  */
 Swarm.prototype._removePeer = function (addr) {
-  var peer = this._peers.index[addr]
+  var peer = this._peers[addr]
   if (!peer) return
   debug('_removePeer %s', addr)
-  delete this._peers.index[addr]
-  this._peers.list.splice(this._peers.list.indexOf(peer), 1)
+  this._peers[addr] = null
+  this._peersLength -= 1
   if (peer.node)
     this._queue.splice(this._queue.indexOf(peer), 1)
   if (peer.timeout)
@@ -432,7 +432,7 @@ Swarm.prototype.destroy = function (onclose) {
 
   debug('destroy')
 
-  for (var addr in this._peers.index) {
+  for (var addr in this._peers) {
     this._removePeer(addr)
   }
 
@@ -533,8 +533,8 @@ Swarm.prototype._drain = function () {
  * @param  {Peer} peer
  */
 Swarm.prototype._onincoming = function (peer) {
-  this._peers.index[peer.wire.remoteAddress] = peer
-  this._peers.list.push(peer)
+  this._peers[peer.wire.remoteAddress] = peer
+  this._peersLength += 1
   peer.wire.handshake(this.infoHash, this.peerId, this.handshake)
 
   this._onconn(peer)

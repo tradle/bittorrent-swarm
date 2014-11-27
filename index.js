@@ -312,7 +312,8 @@ Object.defineProperty(Swarm.prototype, 'numConns', {
   get: function () {
     var numConns = 0
     for (var addr in this._peers) {
-      numConns += this._peers[addr].conn ? 1 : 0
+      var peer = this._peers[addr]
+      numConns += (peer && peer.conn) ? 1 : 0
     }
     return numConns
   }

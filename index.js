@@ -265,7 +265,7 @@ function Swarm (infoHash, peerId, opts) {
   this.infoHashHex = this.infoHash.toString('hex')
 
   this.peerId = typeof peerId === 'string'
-    ? new Buffer(peerId, 'utf8')
+    ? new Buffer(peerId, 'hex')
     : peerId
   this.peerIdHex = this.peerId.toString('hex')
 

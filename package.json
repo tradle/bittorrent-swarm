@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "hat": "^0.0.3",
-    "tape": "^2.12.3"
+    "tape": "^3.0.3"
   },
   "homepage": "http://webtorrent.io",
   "keywords": [

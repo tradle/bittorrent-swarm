@@ -449,10 +449,6 @@ Swarm.prototype.destroy = function (onclose) {
   }.bind(this))
 }
 
-//
-// HELPER METHODS
-//
-
 /**
  * Pop a peer off the FIFO queue and connect to it. When _drain() gets called,
  * the queue will usually have only one peer in it, except when there are too
@@ -474,7 +470,7 @@ Swarm.prototype._drain = function () {
   var parts = addrToIPPort(peer.addr)
   var conn = net.connect(parts[1], parts[0])
 
-  debug('connect to %s (numConns %s numPeers %s)', peer.addr, this.numConns, this.numPeers)
+  debug('attempt connect to %s (numConns %s numPeers %s)', peer.addr, this.numConns, this.numPeers)
 
   // Peer must respond to handshake in timely manner
   var timeout = setTimeout(function () {
@@ -485,11 +481,12 @@ Swarm.prototype._drain = function () {
   conn.timeout = timeout
   this._connTimeouts.push(conn)
 
-  var onhandshake = function (infoHash) {
+  var onhandshake = function (infoHash, peerId) {
     clearTimeout(timeout)
     this._connTimeouts.splice(this._connTimeouts.indexOf(conn), 1)
 
-    if (this.destroyed || infoHash.toString('hex') !== this.infoHashHex)
+    if (this.destroyed || infoHash.toString('hex') !== this.infoHashHex
+        || peerId.toString('hex') === this.peerIdHex)
       return peer.conn.destroy()
 
     this._onwire(peer)
@@ -519,11 +516,13 @@ Swarm.prototype._drain = function () {
     }.bind(this))
 
     wire.handshake(this.infoHash, this.peerId, this.handshake)
+
+    debug('connected to %s (numConns %s numPeers %s)', peer.addr, this.numConns, this.numPeers)
   }.bind(this)
 
   conn.on('connect', onconnect)
   conn.on('error', function (err) {
-    debug('failed to connect %s', peer.addr)
+    debug('failed to connect %s (%s)', peer.addr, err.message)
     // TODO: retry or end connection?
   })
 }

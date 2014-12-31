@@ -331,7 +331,7 @@ Object.defineProperty(Swarm.prototype, 'numPeers', {
  */
 Swarm.prototype.addPeer = function (addr) {
   if (this.destroyed || this._peers[addr]) return
-  if (!validAddr(addr)) return
+  if (!this._validAddr(addr)) return
   debug('addPeer %s', addr)
 
   var peer = new Peer(addr)
@@ -598,7 +598,10 @@ Swarm.prototype._onwire = function (peer) {
  * @param  {string} addr
  * @return {boolean}
  */
-function validAddr (addr) {
-  var port = Number(addrToIPPort(addr)[1])
+Swarm.prototype._validAddr = function (addr) {
+  var parts = addrToIPPort(addr)
+  var ip = parts[0]
+  var port = parts[1]
   return port > 0 && port < 65535
+    && !(ip === '127.0.0.1' && port === this.port)
 }

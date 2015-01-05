@@ -210,6 +210,7 @@ Pool.prototype.addSwarm = function (swarm) {
   if (this.listening) {
     process.nextTick(function () {
       debug('listening %s', swarm.port)
+      swarm.listening = true
       swarm.emit('listening', swarm.port)
     })
   }

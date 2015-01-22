@@ -15,9 +15,7 @@ connecting to peers, listening for incoming connections, and doing the initial
 peer wire protocol handshake with peers. It also tracks total data
 uploaded/downloaded to/from the swarm.
 
-Also works in the browser with [browserify](http://browserify.org/) and
-[chrome-net](https://github.com/feross/chrome-net)! This module is used by
-[WebTorrent](https://github.com/feross/WebTorrent).
+This module is used by [WebTorrent](https://github.com/feross/WebTorrent).
 
 ## install
 

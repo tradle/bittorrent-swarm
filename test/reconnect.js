@@ -29,11 +29,9 @@ test('reconnect when peer disconnects', function (t) {
           setTimeout(function () {
             wire.destroy()
           }, 100)
-
         } else if (time1 === 1) {
           t.ok(wire, 'Remote peer reconnected')
           t.equal(swarm1.wires.length, 1)
-
         } else {
           throw new Error('too many wire events (1)')
         }
@@ -50,14 +48,12 @@ test('reconnect when peer disconnects', function (t) {
             t.pass('Wire ended by remote peer')
             t.equal(swarm1.wires.length, 0)
           })
-
         } else if (time2 === 1) {
           t.ok(wire, 'Reconnected to remote peer')
           t.equal(swarm2.wires.length, 1)
 
           swarm1.destroy()
           swarm2.destroy()
-
         } else {
           throw new Error('too many wire events (2)')
         }
@@ -68,4 +64,3 @@ test('reconnect when peer disconnects', function (t) {
     })
   })
 })
-

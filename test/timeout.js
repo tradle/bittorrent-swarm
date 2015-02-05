@@ -46,4 +46,3 @@ test('timeout if no handshake', function (t) {
     })
   })
 })
-

@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "hat": "^0.0.3",
+    "standard": "^2.4.1",
     "tape": "^3.0.3"
   },
   "homepage": "http://webtorrent.io",
@@ -43,6 +44,6 @@
     "url": "git://github.com/feross/bittorrent-swarm.git"
   },
   "scripts": {
-    "test": "tape test/*.js"
+    "test": "standard && tape test/*.js"
   }
 }

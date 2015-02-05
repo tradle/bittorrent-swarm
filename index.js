@@ -88,8 +88,8 @@ function Pool (port) {
   this.conns = []
 
   this.server = net.createServer(this._onconn.bind(this))
-  this.server.listen(this.port, this._onlistening.bind(this))
   this.server.on('error', this._onerror.bind(this))
+  this.server.listen(this.port, this._onlistening.bind(this))
 
   this._retries = 0
 }
@@ -180,9 +180,10 @@ Pool.prototype._onerror = function (err) {
     }.bind(this), 1000)
   } else {
     this.listening = false
-    this.swarms.forEach(function (swarm) {
+    for (var infoHash in this.swarms) {
+      var swarm = this.swarms[infoHash]
       swarm.emit('error', 'Swarm error: ' + err.message)
-    })
+    }
   }
 }
 

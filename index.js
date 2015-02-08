@@ -172,14 +172,20 @@ Pool.prototype._onconn = function (conn) {
 
 Pool.prototype._onerror = function (err) {
   if (err.code === 'EADDRINUSE' && this._retries < 5) {
-    debug('Address in use, retrying...')
+    debug('Port %d in use, retrying...', this.port)
     setTimeout(function () {
       this._retries += 1
-      this.server.close()
-      this.server.listen(this.port)
+      var done = function () {
+        this.server.listen(this.port)
+      }.bind(this)
+      try {
+        this.server.close(done)
+      } catch (err) {
+        done()
+      }
     }.bind(this), 1000)
   } else {
-    this.listening = false
+    this.destroy()
     for (var infoHash in this.swarms) {
       var swarm = this.swarms[infoHash]
       swarm.emit('error', 'Swarm error: ' + err.message)
@@ -198,7 +204,11 @@ Pool.prototype.destroy = function (cb) {
     conn.destroy()
   })
   this.listening = false
-  this.server.close(cb)
+  try {
+    this.server.close(cb)
+  } catch (err) {
+    cb(null)
+  }
 }
 
 /**

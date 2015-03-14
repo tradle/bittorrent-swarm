@@ -10,6 +10,9 @@ var portfinder = require('portfinder')
 var speedometer = require('speedometer')
 var thunky = require('thunky')
 var Wire = require('bittorrent-protocol')
+var dezalgo = require('dezalgo')
+
+function noop () {}
 
 // Use random port above 1024
 portfinder.basePort = Math.floor(Math.random() * 60000) + 1025
@@ -200,6 +203,7 @@ Pool.prototype._onerror = function (err) {
 Pool.prototype.destroy = function (cb) {
   // Destroy all open connections & wire objects so the server can gracefully
   // close without waiting for timeout or the remote peer to disconnect.
+  cb = dezalgo(cb || noop)
   this.conns.forEach(function (conn) {
     conn.destroy()
   })

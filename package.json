@@ -23,8 +23,10 @@
   },
   "devDependencies": {
     "hat": "^0.0.3",
+    "sock-plex": "^1.0.1",
     "standard": "^2.4.1",
-    "tape": "^3.0.3"
+    "tape": "^3.0.3",
+    "utp": "mvayngrib/utp#master"
   },
   "homepage": "http://webtorrent.io",
   "keywords": [
@@ -45,6 +47,7 @@
     "url": "git://github.com/feross/bittorrent-swarm.git"
   },
   "scripts": {
-    "test": "standard && tape test/*.js"
+    "test": "tape test/*.js && UTP=1 tape test/*.js",
+    "style": "standard"
   }
 }

@@ -484,7 +484,16 @@ Swarm.prototype._drain = function () {
   }
 
   var parts = addrToIPPort(peer.addr)
-  var conn = net.connect(parts[1], parts[0])
+  var connOpts = {
+    host: parts[0],
+    port: parts[1]
+  }
+
+  if (net.isUTP && this.port) {
+    connOpts.localPort = this.port
+  }
+
+  var conn = net.connect(connOpts)
 
   debug('attempt connect to %s (numConns %s numPeers %s)', peer.addr, this.numConns, this.numPeers)
 
@@ -524,6 +533,7 @@ Swarm.prototype._drain = function () {
         return this._removePeer(peer.addr)
 
       var readd = function () {
+        // conn.destroy()
         this._queue.push(peer)
         this._drain()
       }.bind(this)

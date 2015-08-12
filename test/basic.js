@@ -1,3 +1,5 @@
+require('./helpers/netSwitch')
+
 var hat = require('hat')
 var portfinder = require('portfinder')
 var Swarm = require('../')

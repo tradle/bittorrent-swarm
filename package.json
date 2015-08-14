@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "hat": "^0.0.3",
+    "multiplex-utp": "^1.0.0",
     "sock-plex": "^1.0.1",
     "standard": "^2.4.1",
     "tape": "^3.0.3",
